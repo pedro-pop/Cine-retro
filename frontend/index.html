@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cine Retrô — Cinema Clássico sob Demanda</title>
+<meta name="description" content="Cine Retrô: filmes, séries e novelas clássicas em um cinema virtual com sala e poltrona interativas.">
+<link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<!-- ===================== CABECALHO ===================== -->
+<header class="site-header">
+  <div class="container">
+    <a href="#top" class="logo">CINE<span>RETRÔ</span><small>Desde 1920</small></a>
+
+    <nav class="main-nav" id="mainNav">
+      <a href="#catalogo">Catálogo</a>
+      <a href="#destaques">Destaques</a>
+      <a href="#planos">Planos</a>
+    </nav>
+
+    <div class="header-actions">
+      <button class="btn btn-primary btn-small" id="btnOpenAuth">Entrar</button>
+      <div class="user-chip" id="userChip">
+        <span id="userChipName">Usuário</span>
+      </div>
+      <button class="nav-toggle" id="navToggle" aria-label="Abrir menu">☰</button>
+    </div>
+  </div>
+</header>
+
+<!-- ===================== HERO ===================== -->
+<section class="hero" id="top">
+  <div class="container">
+    <div class="hero-content">
+      <span class="hero-eyebrow">Filme em destaque</span>
+      <h1>Casablanca</h1>
+      <p class="tagline">"Sempre nos restará Paris." Um clássico atemporal de amor, sacrifício e intriga em meio à Segunda Guerra Mundial.</p>
+      <div class="hero-meta">
+        <span>1942</span>
+        <span>Drama</span>
+        <span>12 anos</span>
+        <span>102 min</span>
+        <span>★ Top 10</span>
+      </div>
+      <div class="hero-actions">
+        <button class="btn btn-primary" id="btnHeroWatch">▶ Assistir Agora</button>
+        <a href="#catalogo" class="btn btn-outline">Ver Catálogo</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="film-divider"></div>
+
+<!-- ===================== EM DESTAQUE ===================== -->
+<section class="section" id="destaques">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Selecionados pela crítica</span>
+        <h2>Em Destaque</h2>
+      </div>
+      <p class="desc">Os títulos mais aclamados do nosso acervo, eleitos pela curadoria do Cine Retrô.</p>
+    </div>
+    <div class="media-grid" id="featuredGrid">
+      <p class="empty-state">Carregando destaques...</p>
+    </div>
+  </div>
+</section>
+
+<div class="film-divider"></div>
+
+<!-- ===================== CATALOGO ===================== -->
+<section class="section section-alt" id="catalogo">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Acervo completo</span>
+        <h2>Nosso Catálogo</h2>
+      </div>
+      <p class="desc">Filmes, séries e novelas de todas as épocas douradas do cinema.</p>
+    </div>
+
+    <div class="catalog-controls">
+      <div class="genre-filters" id="genreFilters">
+        <button class="genre-chip active" data-genre="Todos">Todos</button>
+        <button class="genre-chip" data-genre="Drama">Drama</button>
+        <button class="genre-chip" data-genre="Suspense">Suspense</button>
+        <button class="genre-chip" data-genre="Comedia">Comédia</button>
+        <button class="genre-chip" data-genre="Romance">Romance</button>
+        <button class="genre-chip" data-genre="Noir">Noir</button>
+        <button class="genre-chip" data-genre="Musical">Musical</button>
+        <button class="genre-chip" data-genre="Aventura">Aventura</button>
+        <button class="genre-chip" data-genre="Terror">Terror</button>
+        <button class="genre-chip" data-genre="Ficcao Cientifica">Ficção Científica</button>
+      </div>
+      <div class="search-box">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cfa856" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="text" id="searchInput" placeholder="Buscar por título, diretor ou elenco...">
+      </div>
+    </div>
+
+    <div class="media-grid" id="catalogGrid">
+      <p class="empty-state">Carregando catálogo...</p>
+    </div>
+  </div>
+</section>
+
+<div class="film-divider"></div>
+
+<!-- ===================== PLANOS ===================== -->
+<section class="section" id="planos">
+  <div class="container">
+    <div class="section-head" style="justify-content:center; text-align:center; flex-direction:column; align-items:center;">
+      <span class="eyebrow">Assine e aproveite</span>
+      <h2>Planos Cine Retrô</h2>
+      <p class="desc" style="max-width:560px;">Escolha o plano ideal e tenha acesso ilimitado ao maior acervo de clássicos do cinema.</p>
+    </div>
+
+    <div class="plans-grid">
+      <div class="plan-card">
+        <h3>Plano Básico</h3>
+        <div class="plan-price">R$ 40<span>/mês</span></div>
+        <ul class="plan-features">
+          <li class="yes">Catálogo completo ilimitado</li>
+          <li class="yes">Qualidade HD</li>
+          <li class="yes">Até 3 contas simultâneas</li>
+          <li class="yes">Acesso em qualquer dispositivo</li>
+          <li class="no">Sem download offline</li>
+          <li class="no">Sem contas extras</li>
+        </ul>
+        <button class="btn btn-outline btn-block" data-plan-slug="basico">Assinar Básico</button>
+      </div>
+
+      <div class="plan-card popular">
+        <span class="plan-popular-tag">Mais Popular</span>
+        <h3>Plano Premium</h3>
+        <div class="plan-price">R$ 60<span>/mês</span></div>
+        <ul class="plan-features">
+          <li class="yes">Tudo do plano Básico</li>
+          <li class="yes">Qualidade Full HD + 4K</li>
+          <li class="yes">Até 5 contas simultâneas</li>
+          <li class="yes">Download para assistir offline</li>
+          <li class="yes">Acesso antecipado a novidades</li>
+          <li class="yes">Sem anúncios</li>
+        </ul>
+        <button class="btn btn-primary btn-block" data-plan-slug="premium">Assinar PREMIUM</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== RODAPE ===================== -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <a href="#top" class="logo" style="margin-bottom:14px; display:inline-flex;">CINE<span>RETRÔ</span></a>
+        <p>O cinema clássico, do jeito que sempre deveria ser assistido: com poltrona, tela grande e a magia da Belle Époque de Hollywood.</p>
+      </div>
+      <div>
+        <h4>Navegação</h4>
+        <ul>
+          <li><a href="#catalogo">Catálogo</a></li>
+          <li><a href="#destaques">Destaques</a></li>
+          <li><a href="#planos">Planos</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Empresa</h4>
+        <ul>
+          <li><a href="#">Sobre o Cine Retrô</a></li>
+          <li><a href="#">Trabalhe conosco</a></li>
+          <li><a href="#">Imprensa</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Suporte</h4>
+        <ul>
+          <li><a href="#">Central de Ajuda</a></li>
+          <li><a href="#">Termos de Uso</a></li>
+          <li><a href="#">Privacidade</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Cine Retrô. Todos os direitos reservados.</span>
+      <span>Feito com carinho pela nostalgia do cinema clássico.</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ===================== MODAL: LOGIN / CADASTRO ===================== -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal-box">
+    <button class="modal-close" data-close-modal>&times;</button>
+    <h2>Bem-vindo ao Cine Retrô</h2>
+    <p class="modal-sub">Entre com sua conta ou crie um novo cadastro</p>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-tab="login">Entrar</button>
+      <button class="auth-tab" data-tab="register">Cadastrar</button>
+    </div>
+
+    <div class="form-message" id="authMessage"></div>
+
+    <!-- Formulario de LOGIN -->
+    <form class="auth-panel active" id="loginPanel" data-panel="login">
+      <div class="field">
+        <label for="loginEmail">E-mail</label>
+        <input type="email" id="loginEmail" required placeholder="seu@email.com">
+      </div>
+      <div class="field">
+        <label for="loginPassword">Senha</label>
+        <input type="password" id="loginPassword" required placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+      <p style="text-align:center; font-size:0.85rem; color:var(--cream-dim);">
+        Super Admin de teste: superadmin@cineretro.com / SuperAdmin123
+      </p>
+    </form>
+
+    <!-- Formulario de CADASTRO -->
+    <form class="auth-panel" id="registerPanel" data-panel="register">
+      <div class="field">
+        <label for="registerName">Nome completo</label>
+        <input type="text" id="registerName" required placeholder="Seu nome">
+      </div>
+      <div class="field">
+        <label for="registerEmail">E-mail</label>
+        <input type="email" id="registerEmail" required placeholder="seu@email.com">
+      </div>
+      <div class="field">
+        <label for="registerPassword">Senha</label>
+        <input type="password" id="registerPassword" required placeholder="Mínimo 6 caracteres">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Criar minha conta</button>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== MODAL: DETALHES DA MIDIA ===================== -->
+<div class="modal-overlay" id="detailsModal">
+  <div class="modal-box wide">
+    <button class="modal-close" data-close-modal>&times;</button>
+    <div id="detailsContent"></div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: SALA E POLTRONA + PLAYER ===================== -->
+<div class="modal-overlay theatre-modal" id="theatreModal">
+  <div class="modal-box wide">
+    <button class="modal-close" data-close-modal>&times;</button>
+    <h2 class="theatre-title" id="theatreMediaTitle">Escolha sua poltrona</h2>
+    <p class="theatre-sub" id="theatreMediaSub">Sala Retrô 1 — a perspectiva da tela se ajusta à sua poltrona</p>
+
+    <div class="screen-perspective-wrap">
+      <div class="cinema-screen" id="cinemaScreen">
+        <span class="screen-placeholder-text">Selecione uma poltrona para iniciar a sessão</span>
+        <video id="cinemaVideo" controls playsinline></video>
+      </div>
+    </div>
+
+    <div class="seat-map" id="seatMap"></div>
+
+    <div class="seat-legend">
+      <span><i class="legend-swatch available"></i> Disponível</span>
+      <span><i class="legend-swatch taken"></i> Ocupada</span>
+      <span><i class="legend-swatch selected"></i> Sua poltrona</span>
+    </div>
+
+    <div class="theatre-footer">
+      <span class="selected-seat-tag" id="selectedSeatTag">Nenhuma poltrona selecionada</span>
+      <button class="btn btn-primary" id="btnConfirmSeat" disabled>🎬 Confirmar e Assistir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: PAINEL ADMINISTRATIVO ===================== -->
+<div class="modal-overlay admin-modal" id="adminModal">
+  <div class="modal-box wide">
+    <button class="modal-close" data-close-modal>&times;</button>
+    <h2 style="text-align:left;">Painel Administrativo</h2>
+    <p class="modal-sub" style="text-align:left;">Gerencie o catálogo, usuários e métricas do Cine Retrô</p>
+
+    <div class="admin-tabs" id="adminTabs">
+      <button class="admin-tab-btn active" data-admin-tab="add-media">+ Adicionar Mídia</button>
+      <button class="admin-tab-btn" data-admin-tab="metrics">Métricas</button>
+      <button class="admin-tab-btn" data-admin-tab="users" id="tabUsersBtn" style="display:none;">Usuários (Super Admin)</button>
+    </div>
+
+    <!-- Aba: Adicionar Midia -->
+    <div class="admin-panel-view active" id="adminPanelAddMedia">
+      <div class="form-message" id="mediaFormMessage"></div>
+      <form id="mediaForm">
+        <div class="form-grid">
+          <div class="field full">
+            <label>Título</label>
+            <input type="text" id="mTitle" required>
+          </div>
+          <div class="field full">
+            <label>Sinopse</label>
+            <textarea id="mSynopsis" rows="2"></textarea>
+          </div>
+          <div class="field">
+            <label>Tipo</label>
+            <select id="mType">
+              <option value="filme">Filme</option>
+              <option value="serie">Série</option>
+              <option value="novela">Novela</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Gênero</label>
+            <input type="text" id="mGenre" required placeholder="Ex: Drama">
+          </div>
+          <div class="field">
+            <label>Classificação indicativa</label>
+            <input type="text" id="mClassification" placeholder="Ex: 14">
+          </div>
+          <div class="field">
+            <label>Faixa etária mínima</label>
+            <input type="number" id="mMinAge" min="0" value="0">
+          </div>
+          <div class="field">
+            <label>Diretor</label>
+            <input type="text" id="mDirector">
+          </div>
+          <div class="field">
+            <label>Elenco</label>
+            <input type="text" id="mCast" placeholder="Separado por vírgulas">
+          </div>
+          <div class="field">
+            <label>País</label>
+            <input type="text" id="mCountry">
+          </div>
+          <div class="field">
+            <label>Produtora</label>
+            <input type="text" id="mProducer">
+          </div>
+          <div class="field">
+            <label>Ano de lançamento</label>
+            <input type="number" id="mYear">
+          </div>
+          <div class="field">
+            <label>Duração (minutos)</label>
+            <input type="number" id="mDuration">
+          </div>
+          <div class="field full">
+            <label>Origem do vídeo</label>
+            <select id="mVideoSource">
+              <option value="link">Link externo</option>
+              <option value="upload">Upload de arquivo</option>
+            </select>
+          </div>
+          <div class="field full" id="mVideoLinkField">
+            <label>URL do vídeo</label>
+            <input type="text" id="mVideoUrl" placeholder="https://...">
+          </div>
+          <div class="field full" id="mVideoUploadField" style="display:none;">
+            <label>Arquivo de vídeo</label>
+            <input type="file" id="mVideoFile" accept="video/*">
+          </div>
+          <div class="field full">
+            <label>Poster (upload opcional)</label>
+            <input type="file" id="mPosterFile" accept="image/*">
+          </div>
+          <div class="field">
+            <label><input type="checkbox" id="mFeatured"> Exibir em Destaque</label>
+          </div>
+          <div class="field">
+            <label><input type="checkbox" id="mTop10"> Incluir no Top 10</label>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="margin-top:20px;">Salvar Mídia no Catálogo</button>
+      </form>
+    </div>
+
+    <!-- Aba: Metricas -->
+    <div class="admin-panel-view" id="adminPanelMetrics">
+      <div class="metrics-grid" id="metricsGrid"></div>
+      <h4 style="color:var(--gold-dim); font-family:var(--font-display); font-size:0.85rem; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:10px;">Mais assistidos</h4>
+      <table class="data-table">
+        <thead><tr><th>Título</th><th>Visualizações</th></tr></thead>
+        <tbody id="mostWatchedBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Aba: Usuarios (Super Admin) -->
+    <div class="admin-panel-view" id="adminPanelUsers">
+      <h4 style="color:var(--gold-dim); font-family:var(--font-display); font-size:0.85rem; letter-spacing:0.05em; text-transform:uppercase;">Criar novo usuário</h4>
+      <form id="createUserForm" class="form-grid" style="margin-bottom:24px;">
+        <div class="field"><label>Nome</label><input type="text" id="nuName" required></div>
+        <div class="field"><label>E-mail</label><input type="email" id="nuEmail" required></div>
+        <div class="field"><label>Senha</label><input type="password" id="nuPassword" required></div>
+        <div class="field">
+          <label>Papel</label>
+          <select id="nuRole">
+            <option value="comum">Usuário Comum</option>
+            <option value="admin">Admin</option>
+            <option value="superadmin">Super Admin</option>
+          </select>
+        </div>
+        <div class="field full"><button type="submit" class="btn btn-outline">Criar Usuário</button></div>
+      </form>
+
+      <h4 style="color:var(--gold-dim); font-family:var(--font-display); font-size:0.85rem; letter-spacing:0.05em; text-transform:uppercase;">Usuários cadastrados</h4>
+      <table class="data-table">
+        <thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>Ações</th></tr></thead>
+        <tbody id="usersTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+# Dependências
+node_modules/
+
+# Variáveis de ambiente (contém senha do banco - NUNCA subir)
+.env
+
+# Uploads de mídia enviados pelos admins
+backend/uploads/
+
+# Logs e arquivos de sistema
+npm-debug.log*
+.DS_Store
+Thumbs.db

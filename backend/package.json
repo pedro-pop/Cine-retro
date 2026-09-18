@@ -1,0 +1,23 @@
+{
+  "name": "cine-retro-backend",
+  "version": "2.0.0",
+  "description": "Backend do Cine Retro - plataforma de streaming de filmes classicos (banco de dados remoto/cloud)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "migrate": "node database/migrate.js"
+  },
+  "keywords": ["cine-retro", "streaming", "express", "postgresql", "supabase"],
+  "author": "Cine Retro",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "pg": "^8.12.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1"
+  }
+}
