@@ -21,9 +21,18 @@
       <a href="#planos">Planos</a>
     </nav>
 
-    <div class="header-actions">
-      <button class="btn btn-primary btn-small" id="btnOpenAuth">Entrar</button>
-      <div class="user-chip" id="userChip">
+    <div class="header-actions"> 
+  <button class="btn btn-primary btn-small" id="btnOpenAuth">Entrar</button> 
+
+  <div class="user-chip" id="userChip"> 
+    <span id="userChipName">Usuário</span> 
+  </div> 
+
+  <button class="btn btn-outline btn-small" id="btnLogout" style="display:none;">Sair</button> 
+
+  <button class="nav-toggle" id="navToggle" aria-label="Abrir menu">☰</button> 
+</div>
+        
         <span id="userChipName">Usuário</span>
       </div>
       <button class="nav-toggle" id="navToggle" aria-label="Abrir menu">☰</button>
@@ -260,7 +269,18 @@
     <div class="screen-perspective-wrap">
       <div class="cinema-screen" id="cinemaScreen">
         <span class="screen-placeholder-text">Selecione uma poltrona para iniciar a sessão</span>
+
         <video id="cinemaVideo" controls playsinline></video>
+
+        <iframe
+    id="cinemaYoutube"
+    style="display:none;"
+    width="100%"
+    height="100%"
+    frameborder="0"
+    allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+    allowfullscreen>
+  </iframe>
       </div>
     </div>
 
@@ -414,6 +434,10 @@
       </table>
     </div>
   </div>
+</div>
+
+<div class="cinema-brand">
+    🎬 CINE RETRÔ
 </div>
 
 <div class="toast" id="toast"></div>

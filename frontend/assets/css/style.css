@@ -861,3 +861,29 @@ h1, h2, h3, h4 {
   .plan-card.popular { transform: none; }
   .field-row, .form-grid { grid-template-columns: 1fr; }
 }
+
+.cinema-screen {
+    position: relative;
+    overflow: hidden;
+}
+
+.cinema-screen iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+}
+
+.cinema-brand {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 10;
+    padding: 6px 12px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 6px;
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    pointer-events: none;
+}

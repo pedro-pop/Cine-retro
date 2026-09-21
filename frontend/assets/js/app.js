@@ -41,6 +41,13 @@ function authHeaders() {
   return state.token ? { 'Authorization': 'Bearer ' + state.token } : {};
 }
 
+function handleUnauthorized() {
+  clearSession();
+  qsa('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+  openModal('authModal');
+  showToast('Sua sessão expirou. Faça login novamente.');
+}
+
 async function apiRequest(path, options = {}) {
   const opts = {
     method: options.method || 'GET',
@@ -50,6 +57,9 @@ async function apiRequest(path, options = {}) {
   const res = await fetch(API_BASE + path, opts);
   let data = {};
   try { data = await res.json(); } catch (e) { /* resposta sem corpo JSON */ }
+  if (res.status === 401 && state.token) {
+    handleUnauthorized();
+  }
   if (!res.ok) throw new Error(data.error || `Erro ${res.status}`);
   return data;
 }
@@ -86,15 +96,18 @@ function updateAuthUI() {
   const btnOpenAuth = qs('#btnOpenAuth');
   const userChip = qs('#userChip');
   const userChipName = qs('#userChipName');
+  const btnLogout = qs('#btnLogout');
 
   if (state.user) {
     btnOpenAuth.style.display = 'none';
     userChip.style.display = 'flex';
+    btnLogout.style.display = 'inline-flex';
     const roleLabel = { comum: '', admin: ' (Admin)', superadmin: ' (Super Admin)' }[state.user.role] || '';
     userChipName.textContent = state.user.name.split(' ')[0] + roleLabel;
   } else {
     btnOpenAuth.style.display = 'inline-flex';
     userChip.style.display = 'none';
+    btnLogout.style.display = 'none';
   }
 }
 
@@ -104,11 +117,13 @@ qs('#userChip').addEventListener('click', () => {
   if (!state.user) return;
   if (state.user.role === 'admin' || state.user.role === 'superadmin') {
     openAdminPanel();
-  } else {
-    if (confirm('Deseja sair da sua conta?')) {
-      clearSession();
-      showToast('Você saiu da sua conta.');
-    }
+  }
+});
+
+qs('#btnLogout').addEventListener('click', () => {
+  if (confirm('Deseja sair da sua conta?')) {
+    clearSession();
+    showToast('Você saiu da sua conta.');
   }
 });
 
@@ -291,8 +306,17 @@ async function openTheatre(media) {
   qs('#theatreMediaTitle').textContent = media.title;
   qs('#cinemaScreen').classList.remove('playing');
   qs('#cinemaScreen').style.transform = '';
-  qs('#cinemaVideo').pause?.();
-  qs('#cinemaVideo').removeAttribute('src');
+
+  const video = qs('#cinemaVideo');
+const youtube = qs('#cinemaYoutube');
+
+video.pause();
+video.removeAttribute('src');
+video.style.display = 'none';
+
+youtube.removeAttribute('src');
+youtube.style.display = 'none';
+
   qs('#btnConfirmSeat').disabled = true;
   qs('#selectedSeatTag').textContent = 'Nenhuma poltrona selecionada';
 
@@ -395,17 +419,77 @@ qs('#btnConfirmSeat').addEventListener('click', async () => {
 function startPlayback(media) {
   const screen = qs('#cinemaScreen');
   const video = qs('#cinemaVideo');
+  const youtube = qs('#cinemaYoutube');
+
   screen.classList.add('playing');
 
+  // Esconde os dois inicialmente
+  video.style.display = 'none';
+  youtube.style.display = 'none';
+
+  video.pause();
+  video.removeAttribute('src');
+  youtube.removeAttribute('src');
+
   if (media.video_url) {
-    video.src = media.video_url;
+
+    const url = media.video_url.trim();
+
+    // Verifica se é um link do YouTube
+    const youtubeId = getYoutubeVideoId(url);
+
+    if (youtubeId) {
+      // Usa o player oficial do YouTube
+      youtube.src = `https://www.youtube.com/embed/${youtubeId}?autoplay=1&controls=1&modestbranding=1&rel=0&iv_load_policy=3`;
+
+      youtube.style.display = 'block';
+
+    } else {
+      // Vídeo normal (.mp4, .webm etc.)
+      video.src = url;
+      video.style.display = 'block';
+
+      video.play().catch(() => {});
+    }
+
   } else if (media.video_path) {
+
     video.src = media.video_path;
-  } else {
-    // Sem fonte real cadastrada: usa um video de demonstracao local silencioso
-    video.removeAttribute('src');
+    video.style.display = 'block';
+
+    video.play().catch(() => {});
   }
-  video.play?.().catch(() => { /* autoplay pode ser bloqueado pelo navegador */ });
+}
+
+function getYoutubeVideoId(url) {
+  try {
+    const parsed = new URL(url);
+
+    // youtube.com/watch?v=XXXXXXXX
+    if (parsed.hostname.includes('youtube.com')) {
+      return parsed.searchParams.get('v');
+    }
+
+    // youtu.be/XXXXXXXX
+    if (parsed.hostname === 'youtu.be') {
+      return parsed.pathname.substring(1);
+    }
+
+    // youtube.com/embed/XXXXXXXX
+    if (parsed.pathname.startsWith('/embed/')) {
+      return parsed.pathname.split('/embed/')[1];
+    }
+
+    // youtube.com/shorts/XXXXXXXX
+    if (parsed.pathname.startsWith('/shorts/')) {
+      return parsed.pathname.split('/shorts/')[1];
+    }
+
+  } catch (error) {
+    return null;
+  }
+
+  return null;
 }
 
 // =====================================================================
@@ -463,6 +547,7 @@ qs('#mediaForm').addEventListener('submit', async (e) => {
 
     const res = await fetch(API_BASE + '/media', { method: 'POST', headers: authHeaders(), body: formData });
     const data = await res.json();
+    if (res.status === 401) handleUnauthorized();
     if (!res.ok) throw new Error(data.error || 'Erro ao salvar mídia.');
 
     msg.textContent = data.message;
