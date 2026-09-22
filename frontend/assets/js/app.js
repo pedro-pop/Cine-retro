@@ -750,9 +750,9 @@ function startPlayback(media) {
 
     if (youtubeId) {
       youtube.src =
-        `https://www.youtube.com/embed/${youtubeId}` +
-        `?autoplay=1&controls=1&modestbranding=1` +
-        `&rel=0&iv_load_policy=3`;
+  `https://www.youtube.com/embed/${youtubeId}` +
+  `?autoplay=1&controls=1&modestbranding=1` +
+  `&rel=0&iv_load_policy=3`;
 
       youtube.style.display = 'block';
 
@@ -1206,53 +1206,42 @@ qs('#mediaForm').addEventListener(
 
 async function loadCatalogAdmin() {
   const tbody = qs('#catalogAdminBody');
-
   if (!tbody) return;
 
   try {
-    const data =
-      await apiRequest('/media');
+    const data = await apiRequest('/media');
 
-    tbody.innerHTML =
-      data.media.map(media => `
-        <tr>
-          <td>${media.title}</td>
+    state.mediaList = data.media;
 
-          <td>
-            ${media.type || 'filme'}
-          </td>
+    renderCatalogAdmin(data.media);
 
-          <td>
-            ${media.release_year || '-'}
-          </td>
+    // Preenche o filtro de gêneros
+    const genreFilter = qs('#catalogGenreFilter');
 
-          <td>
-            ${media.is_featured ? '⭐' : '-'}
-            ${media.is_top10 ? ' 🏆' : ''}
-          </td>
+    if (genreFilter) {
+      const genres = [
+        ...new Set(
+          data.media
+            .map(media => media.genre)
+            .filter(Boolean)
+        )
+      ].sort((a, b) => a.localeCompare(b));
 
-          <td class="table-actions">
-            <button
-              class="link-btn"
-              data-edit-media="${media.id}"
-            >
-              Editar
-            </button>
-
-            <button
-              class="link-btn"
-              data-delete-media="${media.id}"
-            >
-              Excluir
-            </button>
-          </td>
-        </tr>
-      `).join('');
+      genreFilter.innerHTML = `
+        <option value="">Todos os gêneros</option>
+        ${genres
+          .map(
+            genre =>
+              `<option value="${genre}">${genre}</option>`
+          )
+          .join('')}
+      `;
+    }
 
   } catch (err) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="5">
+        <td colspan="7">
           Erro ao carregar catálogo:
           ${err.message}
         </td>
@@ -1260,6 +1249,131 @@ async function loadCatalogAdmin() {
     `;
   }
 }
+
+function renderCatalogAdmin(mediaList) {
+  const tbody = qs('#catalogAdminBody');
+
+  if (!tbody) return;
+
+  if (!mediaList.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align:center;">
+          Nenhum título encontrado.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = mediaList
+    .map(media => `
+      <tr>
+        <td>
+          <img
+            src="${posterUrl(media)}"
+            alt="Poster de ${media.title}"
+            style="
+              width:45px;
+              height:65px;
+              object-fit:cover;
+              border-radius:4px;
+            "
+            onerror="this.src='${FALLBACK_POSTER}'"
+          >
+        </td>
+
+        <td>
+          <strong>${media.title}</strong>
+        </td>
+
+        <td>
+          ${media.type || 'filme'}
+        </td>
+
+        <td>
+          ${media.release_year || '-'}
+        </td>
+
+        <td>
+          ${media.is_featured ? '⭐' : '-'}
+        </td>
+
+        <td>
+          ${media.is_top10 ? '🏆' : '-'}
+        </td>
+
+        <td class="table-actions">
+          <button
+            class="link-btn"
+            data-edit-media="${media.id}"
+          >
+            Editar
+          </button>
+
+          <button
+            class="link-btn"
+            data-delete-media="${media.id}"
+          >
+            Excluir
+          </button>
+        </td>
+      </tr>
+    `)
+    .join('');
+}
+
+// ---------------------------------------------------------------------
+// Filtros do catálogo administrativo
+// ---------------------------------------------------------------------
+
+function applyAdminCatalogFilters() {
+  const search = normalize(
+    qs('#catalogSearch')?.value || ''
+  );
+
+  const type = qs('#catalogTypeFilter')?.value || '';
+
+  const genre = qs('#catalogGenreFilter')?.value || '';
+
+  let filtered = state.mediaList;
+
+  if (search) {
+    filtered = filtered.filter(media =>
+      normalize(media.title).includes(search)
+    );
+  }
+
+  if (type) {
+    filtered = filtered.filter(
+      media => normalize(media.type) === normalize(type)
+    );
+  }
+
+  if (genre) {
+    filtered = filtered.filter(
+      media => normalize(media.genre) === normalize(genre)
+    );
+  }
+
+  renderCatalogAdmin(filtered);
+}
+
+qs('#catalogSearch')?.addEventListener(
+  'input',
+  applyAdminCatalogFilters
+);
+
+qs('#catalogTypeFilter')?.addEventListener(
+  'change',
+  applyAdminCatalogFilters
+);
+
+qs('#catalogGenreFilter')?.addEventListener(
+  'change',
+  applyAdminCatalogFilters
+);
+
 
 const catalogAdminBody =
   qs('#catalogAdminBody');
@@ -1408,8 +1522,7 @@ async function loadMetrics() {
 
 async function loadUsersTable() {
   try {
-    const data =
-      await apiRequest('/users');
+    const data = await apiRequest('/users');
 
     qs('#usersTableBody').innerHTML =
       data.users
@@ -1426,7 +1539,23 @@ async function loadUsersTable() {
                 </span>
               </td>
 
+              <td>
+                ${
+                  u.status === 'ativo'
+                    ? '🟢 Ativo'
+                    : '🔴 Inativo'
+                }
+              </td>
+
               <td class="table-actions">
+
+                <button
+                  class="link-btn"
+                  data-change-role="${u.id}"
+                >
+                  Alterar papel
+                </button>
+
                 <button
                   class="link-btn"
                   data-reset-user="${u.id}"
@@ -1436,10 +1565,22 @@ async function loadUsersTable() {
 
                 <button
                   class="link-btn"
+                  data-toggle-user="${u.id}"
+                >
+                  ${
+                    u.status === 'ativo'
+                      ? 'Desativar'
+                      : 'Ativar'
+                  }
+                </button>
+
+                <button
+                  class="link-btn"
                   data-remove-user="${u.id}"
                 >
                   Remover
                 </button>
+
               </td>
             </tr>
           `
@@ -1447,14 +1588,16 @@ async function loadUsersTable() {
         .join('');
 
   } catch (err) {
+
     qs('#usersTableBody').innerHTML = `
       <tr>
-        <td colspan="4">
+        <td colspan="5">
           Erro ao carregar usuários:
           ${err.message}
         </td>
       </tr>
     `;
+
   }
 }
 
@@ -1491,72 +1634,125 @@ qs('#createUserForm').addEventListener(
   }
 );
 
-qs('#usersTableBody').addEventListener(
-  'click',
-  async e => {
-    const resetButton =
-      e.target.closest(
-        '[data-reset-user]'
+qs('#usersTableBody').addEventListener('click', async e => {
+
+  const resetButton = e.target.closest('[data-reset-user]');
+  const removeButton = e.target.closest('[data-remove-user]');
+  const roleButton = e.target.closest('[data-change-role]');
+  const toggleButton = e.target.closest('[data-toggle-user]');
+
+  try {
+
+    if (roleButton) {
+
+      const newRole = prompt(
+        'Digite o novo papel:\n\ncomum\nadmin\nsuperadmin'
       );
 
-    const removeButton =
-      e.target.closest(
-        '[data-remove-user]'
-      );
+      if (!newRole) return;
 
-    try {
-      if (resetButton) {
-        const newPassword = prompt(
-          'Digite a nova senha para este usuário (mínimo 6 caracteres):'
-        );
+      const role = newRole.trim().toLowerCase();
 
-        if (!newPassword) return;
-
-        await apiRequest(
-          `/users/${resetButton.dataset.resetUser}/reset-password`,
-          {
-            method: 'PUT',
-            body: JSON.stringify({
-              newPassword
-            })
-          }
-        );
-
-        showToast(
-          'Senha redefinida com sucesso.'
-        );
-
+      if (!['comum', 'admin', 'superadmin'].includes(role)) {
+        showToast('Papel inválido.');
         return;
       }
 
-      if (removeButton) {
-        if (
-          !confirm(
-            'Tem certeza que deseja remover este usuário?'
-          )
-        ) {
-          return;
+      await apiRequest(
+        `/users/${roleButton.dataset.changeRole}/role`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ role })
         }
+      );
 
-        await apiRequest(
-          `/users/${removeButton.dataset.removeUser}`,
-          {
-            method: 'DELETE'
-          }
-        );
+      showToast('Papel atualizado com sucesso.');
+      await loadUsersTable();
+      return;
+    }
 
-        showToast(
-          'Usuário removido.'
-        );
+    if (resetButton) {
 
-        loadUsersTable();
+      const newPassword = prompt(
+        'Digite a nova senha para este usuário:'
+      );
+
+      if (!newPassword) return;
+
+      if (newPassword.length < 6) {
+        showToast('A senha precisa ter pelo menos 6 caracteres.');
+        return;
       }
 
-    } catch (err) {
-      showToast(err.message);
+      await apiRequest(
+        `/users/${resetButton.dataset.resetUser}/reset-password`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            newPassword
+          })
+        }
+      );
+
+      showToast('Senha redefinida com sucesso.');
+      return;
     }
+
+    if (toggleButton) {
+
+      const userId = toggleButton.dataset.toggleUser;
+
+      const isActive =
+        toggleButton.textContent.trim().toLowerCase().includes('desativar');
+
+      const newStatus = isActive ? 'inativo' : 'ativo';
+
+      if (!confirm(`Deseja ${isActive ? 'desativar' : 'ativar'} este usuário?`)) {
+        return;
+      }
+
+      await apiRequest(
+        `/users/${userId}/status`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            status: newStatus
+          })
+        }
+      );
+
+      showToast(
+        `Usuário ${isActive ? 'desativado' : 'ativado'} com sucesso.`
+      );
+
+      await loadUsersTable();
+      return;
+    }
+
+    if (removeButton) {
+
+      if (!confirm('Tem certeza que deseja remover este usuário?')) {
+        return;
+      }
+
+      await apiRequest(
+        `/users/${removeButton.dataset.removeUser}`,
+        {
+          method: 'DELETE'
+        }
+      );
+
+      showToast('Usuário removido.');
+      await loadUsersTable();
+    }
+
+  } catch (err) {
+
+    showToast(err.message);
+
   }
-);
+
+});
 
 // =====================================================================
 // MODAIS GENÉRICOS
