@@ -19,7 +19,8 @@ const state = {
   activeMedia: null,
   activeRoom: null,
   selectedSeat: null,
-  editingMediaId: null
+  editingMediaId: null,
+  theme: localStorage.getItem('cr_theme') || 'retro'
 };
 
 // ---------------------------------------------------------------------
@@ -124,6 +125,70 @@ function posterUrl(media) {
   return media.poster_path;
 }
 
+function applyTheme(themeName) {
+  const theme = ['retro', 'light', 'dark'].includes(themeName) ? themeName : 'retro';
+  state.theme = theme;
+  document.body.dataset.theme = theme;
+  localStorage.setItem('cr_theme', theme);
+
+  qsa('.theme-option').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.themeOption === theme);
+  });
+}
+
+function getSavedSeatForMedia(mediaId) {
+  if (!mediaId) return null;
+  try {
+    const raw = localStorage.getItem(`cr_last_seat_${mediaId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function setSavedSeatForMedia(mediaId, seat) {
+  if (!mediaId || !seat) return;
+  localStorage.setItem(`cr_last_seat_${mediaId}`, JSON.stringify(seat));
+}
+
+function clearSavedSeatForMedia(mediaId) {
+  if (!mediaId) return;
+  localStorage.removeItem(`cr_last_seat_${mediaId}`);
+}
+
+function updateHeroContent() {
+  const hero = qs('.hero');
+  if (!hero) return;
+
+  const featured = state.mediaList.find(m => m.is_featured || m.is_top10) || state.mediaList[0];
+  if (!featured) return;
+
+  const title = qs('#heroTitle');
+  const tagline = qs('#heroTagline');
+  const heroMeta = qs('#heroMeta');
+
+  if (title) title.textContent = featured.title || 'Casablanca';
+  if (tagline) {
+    const synopsisText = featured.synopsis || 'A magia do cinema clássico em uma sessão imersiva e elegante.';
+    tagline.textContent = synopsisText;
+  }
+
+  if (heroMeta) {
+    const filmMeta = [
+      featured.release_year || '—',
+      featured.genre || 'Drama',
+      `${featured.min_age ?? 0} anos`,
+      `${featured.duration_minutes || 102} min`,
+      featured.is_top10 ? '★ Top 10' : '★ Destaque'
+    ];
+    heroMeta.innerHTML = filmMeta.map(item => `<span>${item}</span>`).join('');
+  }
+
+  hero.style.backgroundImage = `linear-gradient(0deg, rgba(13, 8, 6, 0.8) 2%, rgba(18,12,8,0.55) 45%, rgba(18,12,8,0.82) 100%), url('${posterUrl(featured)}')`;
+  hero.style.backgroundSize = 'cover';
+  hero.style.backgroundPosition = 'center';
+}
+
 // =====================================================================
 // AUTENTICAÇÃO
 // =====================================================================
@@ -150,12 +215,14 @@ function clearSession() {
 
 function updateAuthUI() {
   const btnOpenAuth = qs('#btnOpenAuth');
+  const btnProfile = qs('#btnProfile');
   const userChip = qs('#userChip');
   const userChipName = qs('#userChipName');
   const btnLogout = qs('#btnLogout');
 
   if (state.user) {
     btnOpenAuth.style.display = 'none';
+    btnProfile.style.display = 'inline-flex';
     userChip.style.display = 'flex';
     btnLogout.style.display = 'inline-flex';
 
@@ -169,6 +236,7 @@ function updateAuthUI() {
       state.user.name.split(' ')[0] + roleLabel;
   } else {
     btnOpenAuth.style.display = 'inline-flex';
+    btnProfile.style.display = 'none';
     userChip.style.display = 'none';
     btnLogout.style.display = 'none';
   }
@@ -176,6 +244,11 @@ function updateAuthUI() {
 
 qs('#btnOpenAuth').addEventListener('click', () => {
   openModal('authModal');
+});
+
+qs('#btnProfile').addEventListener('click', () => {
+  if (!state.user) return;
+  openProfileModal();
 });
 
 qs('#userChip').addEventListener('click', () => {
@@ -192,7 +265,85 @@ qs('#userChip').addEventListener('click', () => {
 qs('#btnLogout').addEventListener('click', () => {
   if (confirm('Deseja sair da sua conta?')) {
     clearSession();
+    qsa('.modal-overlay.open').forEach(m => m.classList.remove('open'));
     showToast('Você saiu da sua conta.');
+  }
+});
+
+qsa('.theme-option').forEach(btn => {
+  btn.addEventListener('click', () => {
+    applyTheme(btn.dataset.themeOption);
+  });
+});
+
+async function openProfileModal() {
+  if (!state.user) return;
+
+  const profileNameInput = qs('#profileNameInput');
+  const profileEmailInput = qs('#profileEmailInput');
+  const profileNameHeader = qs('#profileNameHeader');
+  const profileEmailHeader = qs('#profileEmailHeader');
+  const profilePlanStatus = qs('#profilePlanStatus');
+  const profileRole = qs('#profileRole');
+  const profileMessage = qs('#profileMessage');
+  const avatar = qs('#profileAvatar');
+
+  profileNameInput.value = state.user.name || '';
+  profileEmailInput.value = state.user.email || '';
+  profileNameHeader.textContent = state.user.name || 'Usuário';
+  profileEmailHeader.textContent = state.user.email || 'usuario@cineretro.com';
+  avatar.textContent = (state.user.name || 'U').trim().charAt(0).toUpperCase();
+  profileRole.textContent = `Papel: ${state.user.role || 'comum'}`;
+
+  if (profileMessage) {
+    profileMessage.textContent = '';
+    profileMessage.className = 'form-message';
+  }
+
+  try {
+    const data = await apiRequest('/plans/my-subscription');
+    if (data.subscription) {
+      profilePlanStatus.innerHTML = `
+        <strong>${data.subscription.plan_name || 'Plano'}</strong><br>
+        ${Number(data.subscription.price || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}<br>
+        Status: ${data.subscription.status || 'ativa'}
+      `;
+    } else {
+      profilePlanStatus.textContent = 'Nenhum plano ativo encontrado.';
+    }
+  } catch (error) {
+    profilePlanStatus.textContent = 'Não foi possível carregar a assinatura do plano.';
+  }
+
+  openModal('profileModal');
+}
+
+qs('#profileForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const message = qs('#profileMessage');
+  const name = qs('#profileNameInput').value.trim();
+
+  try {
+    const payload = {
+      name: name || state.user.name,
+      avatar_url: null
+    };
+
+    const data = await apiRequest('/users/me', {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    });
+
+    state.user = { ...state.user, name: name || state.user.name };
+    localStorage.setItem('cr_user', JSON.stringify(state.user));
+    updateAuthUI();
+
+    message.textContent = data.message || 'Perfil atualizado com sucesso.';
+    message.className = 'form-message show success';
+    openProfileModal();
+  } catch (error) {
+    message.textContent = error.message;
+    message.className = 'form-message show error';
   }
 });
 
@@ -286,15 +437,14 @@ qs('#registerPanel').addEventListener('submit', async e => {
 
 function renderMediaCard(media) {
   const badge = media.is_top10
-    ? `<span class="badge">Top 10</span>`
-    : (
-        media.is_featured
-          ? `<span class="badge">Destaque</span>`
-          : ''
-      );
+    ? '<span class="badge">Top 10</span>'
+    : (media.is_featured ? '<span class="badge">Destaque</span>' : '');
+
+  const synopsis = media.synopsis || 'Sinopse indisponível no momento.';
+  const hasTrailer = Boolean(media.video_url || media.video_path);
 
   return `
-    <div class="media-card" data-media-id="${media.id}">
+    <article class="media-card" data-media-id="${media.id}">
       <div class="poster-wrap">
         <img
           src="${posterUrl(media)}"
@@ -306,22 +456,25 @@ function renderMediaCard(media) {
         ${badge}
 
         <div class="overlay-actions">
-          <button
-            class="btn btn-primary btn-small btn-watch"
-            data-media-id="${media.id}"
-          >
-            ▶ Assistir
-          </button>
+          <button class="btn btn-primary btn-small btn-watch" type="button" data-media-id="${media.id}">▶ Assistir</button>
+          <button class="btn btn-outline btn-small btn-details" type="button" data-media-id="${media.id}">Detalhes</button>
         </div>
       </div>
 
       <div class="info">
         <h3>${media.title}</h3>
         <div class="meta">
-          ${media.genre} • ${media.release_year || ''}
+          ${media.genre || 'Drama'} • ${media.release_year || ''}
+        </div>
+        <div class="meta meta-sub">
+          ${media.duration_minutes ? `${media.duration_minutes} min` : 'Clássico'}
+          ${media.classification ? ` • ${media.classification}` : ''}
+        </div>
+        <div class="media-card-summary">
+          ${synopsis.length > 120 ? `${synopsis.slice(0, 120)}...` : synopsis}
         </div>
       </div>
-    </div>
+    </article>
   `;
 }
 
@@ -358,29 +511,86 @@ function normalize(str) {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
-function renderCatalog() {
-  const grid = qs('#catalogGrid');
-  const list = applyFilters();
+function buildCatalogSections(list) {
+  const filteredList = list || [];
 
-  grid.innerHTML = list.length
-    ? list.map(renderMediaCard).join('')
-    : `
+  if (!filteredList.length) {
+    return `
       <p class="empty-state">
         Nenhum título encontrado com esses filtros.
         Tente outra busca ou gênero.
       </p>
     `;
+  }
+
+  if (state.currentGenre !== 'Todos' || state.currentSearch.trim()) {
+    return `
+      <div class="catalog-section">
+        <div class="catalog-section-header">
+          <h3>${state.currentGenre !== 'Todos' ? state.currentGenre : 'Resultados'}</h3>
+        </div>
+        <div class="catalog-rail">
+          ${filteredList.map(renderMediaCard).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  const genres = [...new Set(filteredList.map(item => item.genre).filter(Boolean))];
+  const genreSections = genres.map(genre => {
+    const items = filteredList.filter(item => item.genre === genre).slice(0, 12);
+    return `
+      <div class="catalog-section">
+        <div class="catalog-section-header">
+          <h3>${genre}</h3>
+        </div>
+        <div class="catalog-rail">
+          ${items.map(renderMediaCard).join('')}
+        </div>
+      </div>
+    `;
+  });
+
+  const featured = filteredList.filter(item => item.is_featured || item.is_top10).slice(0, 12);
+  const sections = [
+    {
+      title: 'Em destaque',
+      items: featured
+    },
+    ...genres.map(genre => ({
+      title: genre,
+      items: filteredList.filter(item => item.genre === genre).slice(0, 12)
+    }))
+  ];
+
+  const finalSections = sections.filter(section => section.items.length).map(section => `
+    <div class="catalog-section">
+      <div class="catalog-section-header">
+        <h3>${section.title}</h3>
+      </div>
+      <div class="catalog-rail">
+        ${section.items.map(renderMediaCard).join('')}
+      </div>
+    </div>
+  `);
+
+  return finalSections.join('') || genreSections.join('');
+}
+
+function renderCatalog() {
+  const grid = qs('#catalogGrid');
+  const list = applyFilters();
+  grid.innerHTML = buildCatalogSections(list);
 }
 
 function renderFeatured() {
   const grid = qs('#featuredGrid');
-
   const featured = state.mediaList
     .filter(m => m.is_featured || m.is_top10)
-    .slice(0, 8);
+    .slice(0, 12);
 
   grid.innerHTML = featured.length
-    ? featured.map(renderMediaCard).join('')
+    ? `<div class="catalog-rail catalog-rail-featured">${featured.map(renderMediaCard).join('')}</div>`
     : `
       <p class="empty-state">
         Nenhum destaque disponível no momento.
@@ -401,6 +611,7 @@ async function loadCatalog() {
     state.mediaList = LOCAL_FALLBACK_MEDIA;
   }
 
+  updateHeroContent();
   renderCatalog();
   renderFeatured();
 }
@@ -440,6 +651,9 @@ qs('#searchInput').addEventListener('input', e => {
 
 document.addEventListener('click', e => {
   const watchBtn = e.target.closest('.btn-watch');
+  const detailsBtn = e.target.closest('.btn-details');
+  const trailerBtn = e.target.closest('.btn-trailer');
+  const card = e.target.closest('.media-card');
 
   if (watchBtn) {
     const media = state.mediaList.find(
@@ -451,6 +665,43 @@ document.addEventListener('click', e => {
     }
 
     return;
+  }
+
+  if (trailerBtn) {
+    const media = state.mediaList.find(
+      m => String(m.id) === trailerBtn.dataset.mediaId
+    );
+
+    if (media) {
+      openTheatre(media, { autoplayTrailer: true });
+    }
+
+    return;
+  }
+
+  if (detailsBtn) {
+    const media = state.mediaList.find(
+      m => String(m.id) === detailsBtn.dataset.mediaId
+    );
+
+    if (media) {
+      openMediaDetails(media);
+    }
+    return;
+  }
+
+  if (card && !e.target.closest('button')) {
+    const media = state.mediaList.find(
+      m => String(m.id) === card.dataset.mediaId
+    );
+
+    if (media) {
+      const expanded = card.classList.contains('is-expanded');
+      qsa('.media-card.is-expanded').forEach(item => {
+        if (item !== card) item.classList.remove('is-expanded');
+      });
+      card.classList.toggle('is-expanded', !expanded);
+    }
   }
 });
 
@@ -466,6 +717,22 @@ qs('#btnHeroWatch').addEventListener('click', () => {
       'Catálogo ainda carregando, tente novamente em instantes.'
     );
   }
+});
+
+qs('#btnHeroTrailer').addEventListener('click', () => {
+  const featured = state.mediaList.find(m => m.is_featured || m.is_top10) || state.mediaList[0];
+
+  if (!featured) {
+    showToast('Catálogo ainda carregando, tente novamente em instantes.');
+    return;
+  }
+
+  if (!featured.video_url && !featured.video_path) {
+    openMediaDetails(featured);
+    return;
+  }
+
+  openTheatre(featured, { autoplayTrailer: true });
 });
 
 // =====================================================================
@@ -510,17 +777,63 @@ qsa('[data-plan-slug]').forEach(btn => {
   });
 });
 
+function openMediaDetails(media) {
+  const content = qs('#detailsContent');
+  if (!content || !media) return;
+
+  const hasTrailer = Boolean(media.video_url || media.video_path);
+
+  content.innerHTML = `
+    <div class="details-layout">
+      <div class="details-poster">
+        <img src="${posterUrl(media)}" alt="Pôster de ${media.title}" onerror="this.src='${FALLBACK_POSTER}'">
+      </div>
+      <div class="details-copy">
+        <span class="eyebrow">${media.type || 'Filme'}</span>
+        <h2>${media.title}</h2>
+        <div class="details-meta">
+          <span>${media.genre || 'Drama'}</span>
+          <span>${media.release_year || '—'}</span>
+          <span>${media.duration_minutes ? `${media.duration_minutes} min` : 'Clássico'}</span>
+          <span>${media.classification || 'Livre'}</span>
+        </div>
+        <p>${media.synopsis || 'Sinopse indisponível no momento.'}</p>
+        <div class="details-actions">
+          <button class="btn btn-primary btn-watch" type="button" data-media-id="${media.id}">▶ Assistir</button>
+          ${hasTrailer ? `<button class="btn btn-outline btn-trailer" type="button" data-media-id="${media.id}">🎬 Trailer</button>` : ''}
+          <button class="btn btn-outline" type="button" data-close-modal>Fechar</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  openModal('detailsModal');
+}
+
 // =====================================================================
 // SALA DE CINEMA / SELEÇÃO DE POLTRONA
 // =====================================================================
 
-async function openTheatre(media) {
+function applyRoomTheme(room) {
+  const modal = qs('#theatreModal');
+  const theme = (room && room.theme) || 'retro';
+
+  if (!modal) return;
+
+  modal.classList.toggle('room-retro', theme === 'retro');
+  modal.classList.toggle('room-moderna', theme === 'moderna');
+  modal.dataset.roomTheme = theme;
+}
+
+async function openTheatre(media, options = {}) {
   state.activeMedia = media;
-  state.selectedSeat = null;
+  const savedSeat = getSavedSeatForMedia(media.id);
+  state.selectedSeat = savedSeat;
 
   qs('#theatreMediaTitle').textContent = media.title;
 
   qs('#cinemaScreen').classList.remove('playing');
+  qs('#theatreModal').classList.remove('session-live');
   qs('#cinemaScreen').style.transform = '';
 
   const video = qs('#cinemaVideo');
@@ -533,10 +846,10 @@ async function openTheatre(media) {
   youtube.removeAttribute('src');
   youtube.style.display = 'none';
 
-  qs('#btnConfirmSeat').disabled = true;
-
-  qs('#selectedSeatTag').textContent =
-    'Nenhuma poltrona selecionada';
+  qs('#btnConfirmSeat').disabled = !savedSeat;
+  qs('#selectedSeatTag').textContent = savedSeat
+    ? `Poltrona atual: ${savedSeat.row}${savedSeat.number}`
+    : 'Nenhuma poltrona selecionada';
 
   let room = state.activeRoom;
   let takenSeats = [];
@@ -544,14 +857,36 @@ async function openTheatre(media) {
   try {
     const roomsData = await apiRequest('/rooms');
 
-    room = roomsData.rooms[0];
+    room = roomsData.rooms[0] || room || {
+      id: 1,
+      name: 'Sala Retrô 1',
+      theme: 'retro',
+      total_rows: 6,
+      seats_per_row: 8
+    };
 
     const seatsData = await apiRequest(
       `/rooms/${room.id}/seats?media_id=${media.id}`
     );
 
-    takenSeats = seatsData.takenSeats;
-    room = seatsData.room;
+    takenSeats = seatsData.takenSeats || [];
+    room = seatsData.room || room;
+
+    if (savedSeat) {
+      const savedSeatKey = `${savedSeat.row}${savedSeat.number}`;
+      const seatIsTaken = takenSeats.includes(savedSeatKey);
+
+      if (seatIsTaken) {
+        clearSavedSeatForMedia(media.id);
+        state.selectedSeat = null;
+        qs('#btnConfirmSeat').disabled = true;
+        qs('#selectedSeatTag').textContent = 'Nenhuma poltrona selecionada';
+      } else {
+        state.selectedSeat = savedSeat;
+        qs('#btnConfirmSeat').disabled = false;
+        qs('#selectedSeatTag').textContent = `Poltrona atual: ${savedSeatKey}`;
+      }
+    }
 
   } catch (err) {
     room = room || {
@@ -564,11 +899,25 @@ async function openTheatre(media) {
   }
 
   state.activeRoom = room;
+  applyRoomTheme(room);
 
   qs('#theatreMediaSub').textContent =
-    `${room.name} — a perspectiva da tela se ajusta à sua poltrona`;
+    `${room.name} — ${room.theme === 'moderna' ? 'layout premium com conforto de primeira classe' : 'a perspectiva da tela se ajusta à sua poltrona'}`;
 
   renderSeatMap(room, takenSeats);
+
+  if (savedSeat) {
+    const savedSeatId = `${savedSeat.row}${savedSeat.number}`;
+    const seatEl = qs(`.seat[data-seat-id="${savedSeatId}"]`);
+    if (seatEl && !seatEl.classList.contains('taken')) {
+      seatEl.classList.add('selected');
+      applySeatPerspective(savedSeat.row, savedSeat.number);
+    }
+  }
+
+  if (options.autoplayTrailer && (media.video_url || media.video_path)) {
+    startPlayback(media);
+  }
 
   openModal('theatreModal');
 }
@@ -637,6 +986,10 @@ qs('#seatMap').addEventListener('click', e => {
     row,
     number
   };
+
+  if (state.activeMedia) {
+    setSavedSeatForMedia(state.activeMedia.id, state.selectedSeat);
+  }
 
   qs('#selectedSeatTag').textContent =
     `Poltrona selecionada: ${row}${number}`;
@@ -708,6 +1061,8 @@ qs('#btnConfirmSeat').addEventListener('click', async () => {
     );
   }
 
+  setSavedSeatForMedia(media.id, seat);
+
   qs(
     `.seat[data-seat-id="${seat.row}${seat.number}"]`
   )?.classList.add('taken');
@@ -726,6 +1081,64 @@ qs('#btnConfirmSeat').addEventListener('click', async () => {
   showToast(
     `Sessão iniciada na poltrona ${seat.row}${seat.number}!`
   );
+});
+
+qs('#btnExitTheatre').addEventListener('click', () => {
+  const screen = qs('#cinemaScreen');
+  const video = qs('#cinemaVideo');
+  const youtube = qs('#cinemaYoutube');
+
+  if (video) video.pause();
+  if (youtube) youtube.src = '';
+  screen.classList.remove('playing');
+  closeModal('theatreModal');
+});
+
+qs('#btnChangeSeat').addEventListener('click', () => {
+  if (!state.activeMedia) return;
+
+  state.selectedSeat = null;
+  clearSavedSeatForMedia(state.activeMedia.id);
+  qsa('.seat.selected').forEach(el => el.classList.remove('selected'));
+  qs('#selectedSeatTag').textContent = 'Nenhuma poltrona selecionada';
+  qs('#btnConfirmSeat').disabled = true;
+  showToast('Selecione uma nova poltrona para continuar.');
+  qs('#seatMap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
+qs('#btnTogglePlayback').addEventListener('click', () => {
+  const video = qs('#cinemaVideo');
+  const screen = qs('#cinemaScreen');
+
+  if (!state.activeMedia) return;
+
+  if (!screen.classList.contains('playing')) {
+    startPlayback(state.activeMedia);
+    return;
+  }
+
+  if (!video.paused) {
+    video.pause();
+    showToast('Playback pausado.');
+  } else {
+    video.play().catch(() => {});
+    showToast('Playback retomado.');
+  }
+});
+
+qs('#btnFullscreen').addEventListener('click', async () => {
+  const screen = qs('#cinemaScreen');
+
+  if (!document.fullscreenElement) {
+    if (screen.requestFullscreen) {
+      await screen.requestFullscreen();
+    }
+    return;
+  }
+
+  if (document.exitFullscreen) {
+    await document.exitFullscreen();
+  }
 });
 
 function startPlayback(media) {
@@ -1877,5 +2290,6 @@ const LOCAL_FALLBACK_MEDIA = [
 // INICIALIZAÇÃO
 // =====================================================================
 
+applyTheme(state.theme);
 updateAuthUI();
 loadCatalog();

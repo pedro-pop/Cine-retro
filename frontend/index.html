@@ -21,20 +21,36 @@
       <a href="#planos">Planos</a>
     </nav>
 
-    <div class="header-actions"> 
-  <button class="btn btn-primary btn-small" id="btnOpenAuth">Entrar</button> 
+    <div class="header-actions">
+      <div class="theme-switcher" aria-label="Tema do site">
+        <button class="theme-option active" data-theme-option="retro" type="button" aria-label="Tema retrô">
+          <span class="theme-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="img" aria-hidden="true"><path d="M3 12c0-2.2 1.8-4 4-4h2.5l1.5-3h5l1.5 3H17c2.2 0 4 1.8 4 4 0 2.3-1.8 4-4 4H7c-2.2 0-4-1.7-4-4Zm6 1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm9-1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/></svg>
+          </span>
+          Retrô
+        </button>
+        <button class="theme-option" data-theme-option="light" type="button" aria-label="Tema claro">
+          <span class="theme-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="img" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77"/></svg>
+          </span>
+          Claro
+        </button>
+        <button class="theme-option" data-theme-option="dark" type="button" aria-label="Tema escuro">
+          <span class="theme-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="img" aria-hidden="true"><path d="M20 15.5A7.5 7.5 0 0 1 8.5 4a8 8 0 1 0 11.5 11.5Z"/></svg>
+          </span>
+          Escuro
+        </button>
+      </div>
 
-  <div class="user-chip" id="userChip"> 
-    <span id="userChipName">Usuário</span> 
-  </div> 
+      <button class="btn btn-primary btn-small" id="btnOpenAuth">Entrar</button>
+      <button class="btn btn-outline btn-small" id="btnProfile" style="display:none;">Perfil</button>
 
-  <button class="btn btn-outline btn-small" id="btnLogout" style="display:none;">Sair</button> 
-
-  <button class="nav-toggle" id="navToggle" aria-label="Abrir menu">☰</button> 
-</div>
-        
+      <div class="user-chip" id="userChip">
         <span id="userChipName">Usuário</span>
       </div>
+
+      <button class="btn btn-outline btn-small" id="btnLogout" style="display:none;">Sair</button>
       <button class="nav-toggle" id="navToggle" aria-label="Abrir menu">☰</button>
     </div>
   </div>
@@ -45,9 +61,9 @@
   <div class="container">
     <div class="hero-content">
       <span class="hero-eyebrow">Filme em destaque</span>
-      <h1>Casablanca</h1>
-      <p class="tagline">"Sempre nos restará Paris." Um clássico atemporal de amor, sacrifício e intriga em meio à Segunda Guerra Mundial.</p>
-      <div class="hero-meta">
+      <h1 id="heroTitle">Casablanca</h1>
+      <p class="tagline" id="heroTagline">"Sempre nos restará Paris." Um clássico atemporal de amor, sacrifício e intriga em meio à Segunda Guerra Mundial.</p>
+      <div class="hero-meta" id="heroMeta">
         <span>1942</span>
         <span>Drama</span>
         <span>12 anos</span>
@@ -56,7 +72,8 @@
       </div>
       <div class="hero-actions">
         <button class="btn btn-primary" id="btnHeroWatch">▶ Assistir Agora</button>
-        <a href="#catalogo" class="btn btn-outline">Ver Catálogo</a>
+        <button class="btn btn-outline" id="btnHeroTrailer" type="button">🎬 Trailer</button>
+        <button class="btn btn-outline" id="btnHeroDetails" type="button">Ver Detalhes</button>
       </div>
     </div>
   </div>
@@ -259,15 +276,74 @@
   </div>
 </div>
 
+<!-- ===================== MODAL: PERFIL DO USUÁRIO ===================== -->
+<div class="modal-overlay" id="profileModal">
+  <div class="modal-box wide profile-modal-box">
+    <button class="modal-close" data-close-modal>&times;</button>
+    <div class="profile-modal-header">
+      <div>
+        <span class="eyebrow">Sua conta</span>
+        <h2>Perfil do usuário</h2>
+      </div>
+    </div>
+
+    <div class="profile-grid">
+      <div class="profile-card">
+        <div class="profile-avatar" id="profileAvatar">U</div>
+        <div class="profile-info">
+          <p class="profile-label">Nome</p>
+          <h3 id="profileNameHeader">Usuário</h3>
+          <p id="profileEmailHeader">usuario@exemplo.com</p>
+        </div>
+      </div>
+
+      <div class="profile-card subscription-card">
+        <h3>Assinatura</h3>
+        <p id="profilePlanStatus">Carregando assinatura...</p>
+        <p class="profile-role" id="profileRole">Papel: usuário</p>
+      </div>
+    </div>
+
+    <form id="profileForm" class="profile-form">
+      <div class="field">
+        <label for="profileNameInput">Nome</label>
+        <input id="profileNameInput" type="text" placeholder="Seu nome">
+      </div>
+      <div class="field">
+        <label for="profileEmailInput">E-mail</label>
+        <input id="profileEmailInput" type="email" placeholder="seu@email.com">
+      </div>
+      <div class="form-message" id="profileMessage"></div>
+      <div class="profile-actions">
+        <button class="btn btn-primary" type="submit">Salvar alterações</button>
+        <button class="btn btn-outline" type="button" id="btnProfilePassword" disabled>Trocar senha</button>
+      </div>
+      <p class="profile-note">A troca de senha exigirá uma rota de recuperação ou redefinição específica no backend. Neste estado atual, o frontend apenas preserva e exibe as informações reais da conta autenticada.</p>
+    </form>
+  </div>
+</div>
+
 <!-- ===================== MODAL: SALA E POLTRONA + PLAYER ===================== -->
 <div class="modal-overlay theatre-modal" id="theatreModal">
-  <div class="modal-box wide">
+  <div class="modal-box wide theatre-box">
     <button class="modal-close" data-close-modal>&times;</button>
-    <h2 class="theatre-title" id="theatreMediaTitle">Escolha sua poltrona</h2>
-    <p class="theatre-sub" id="theatreMediaSub">Sala Retrô 1 — a perspectiva da tela se ajusta à sua poltrona</p>
+    <div class="theatre-header">
+      <div>
+        <h2 class="theatre-title" id="theatreMediaTitle">Escolha sua poltrona</h2>
+        <p class="theatre-sub" id="theatreMediaSub">Sala Retrô 1 — a perspectiva da tela se ajusta à sua poltrona</p>
+      </div>
+      <div class="theatre-controls-inline">
+        <button class="btn btn-outline btn-small" id="btnExitTheatre" type="button">Sair da sessão</button>
+      </div>
+    </div>
 
     <div class="screen-perspective-wrap">
       <div class="cinema-screen" id="cinemaScreen">
+        <div class="cinema-overlay-controls" id="cinemaOverlayControls">
+          <button id="btnTogglePlayback" type="button" class="player-control">▶</button>
+          <button id="btnChangeSeat" type="button" class="player-control">Trocar poltrona</button>
+          <button id="btnFullscreen" type="button" class="player-control">Tela cheia</button>
+        </div>
         <span class="screen-placeholder-text">Selecione uma poltrona para iniciar a sessão</span>
 
         <video id="cinemaVideo" controls playsinline></video>
