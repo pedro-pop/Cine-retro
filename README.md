@@ -1,8 +1,8 @@
 # 🎬 Cine Retrô 2.0
 
-Plataforma de streaming com tema vintage/clássico de cinema, desenvolvida com **Node.js + Express** no backend, **PostgreSQL remoto (cloud)** como banco de dados e **HTML/CSS/JavaScript puro** no frontend. Inclui autenticação com controle de acesso por papéis (RBAC), catálogo administrável, planos de assinatura e uma experiência interativa de **seleção de sala e poltrona** que ajusta a perspectiva 3D da tela de projeção.
+Plataforma de streaming com tema vintage/clássico de cinema, frontend em **HTML/CSS/JavaScript** e uma API atual em **Python + FastAPI** com PostgreSQL. O backend Express anterior continua no repositório para referência e compatibilidade; não foi removido nem é o serviço usado pelo novo fluxo.
 
-> **Novidade da versão 2.0:** o projeto **não depende mais de MySQL/PostgreSQL instalado na máquina, nem de Docker**. O banco de dados roda em um provedor cloud gratuito (Supabase, Railway, Neon, etc.) e as tabelas + dados iniciais são criados **automaticamente** ao rodar `npm start`. Basta configurar uma variável de ambiente.
+> **Importante:** o FastAPI não cria tabelas nem semeia catálogo de exemplo. A integração de dados exige um PostgreSQL com o schema existente e credenciais configuradas. O contrato e o plano de schema Supabase são mantidos em [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md) e [`docs/SUPABASE_SCHEMA_PLAN.md`](docs/SUPABASE_SCHEMA_PLAN.md). Não use o antigo `npm start` para esta etapa: o Express legado executa migração e semeadura automáticas.
 
 ---
 
@@ -10,8 +10,18 @@ Plataforma de streaming com tema vintage/clássico de cinema, desenvolvida com *
 
 ```
 cine-retro-2.0/
+├── backend_python/
+│   ├── app/
+│   │   ├── main.py               # FastAPI, CORS, erros e arquivos estáticos
+│   │   ├── routers/              # Rotas de autenticação, usuários, mídia, planos e salas
+│   │   ├── services/             # Regras de domínio (inclui reserva/troca de poltrona)
+│   │   ├── db.py                 # Conexão PostgreSQL sem migração automática
+│   │   └── security.py           # Hash de senha e JWT
+│   ├── tests/                    # Testes automatizados da API e regras
+│   ├── requirements.txt
+│   └── .env.example
 ├── backend/
-│   ├── server.js                 # Servidor Express principal (roda a migração automática ao subir)
+│   ├── server.js                 # Servidor Express legado (migra/semeia ao subir)
 │   ├── package.json              # Dependências (express, cors, dotenv, pg, bcryptjs, jsonwebtoken, multer)
 │   ├── .env.example               # Modelo de variáveis de ambiente (banco remoto)
 │   ├── api/
@@ -40,7 +50,48 @@ cine-retro-2.0/
 
 ---
 
-## ✅ Pré-requisitos
+## 🚀 Executar o frontend integrado ao FastAPI
+
+### Requisitos
+
+- Python 3.11 ou superior.
+- PostgreSQL acessível para autenticação, catálogo, planos, salas e reservas persistentes.
+- Nenhuma chave privada é necessária no navegador.
+
+### Instalação e execução (PowerShell)
+
+```powershell
+cd backend_python
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
+Edite `backend_python/.env` com a URL do PostgreSQL existente e um `JWT_SECRET` forte. `DATABASE_SSLMODE=require` é o padrão; `CORS_ORIGINS` é uma lista explícita, não aceita curinga. Não copie credenciais para o frontend.
+
+Inicie a aplicação a partir de `backend_python/`:
+
+```powershell
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Abra **http://127.0.0.1:8000**. A mesma origem serve a SPA e `/api`. A documentação interativa fica em **http://127.0.0.1:8000/docs** e a verificação da API em **http://127.0.0.1:8000/api/health**. Sem banco, a API informa `{"status":"degraded","database":"not_configured"}` e as operações de dados retornam erro explícito; o frontend não apresenta catálogo demonstrativo como conteúdo real.
+
+Para servir o frontend separadamente, defina `window.CINE_RETRO_API_BASE` antes de carregar `assets/js/api.js` e inclua a origem exata do frontend em `CORS_ORIGINS`.
+
+**Não há migração automática nesta etapa.** O schema de referência não tem os índices de unicidade necessários para garantir reservas contra escritores concorrentes. Não se deve declarar reservas de produção seguras antes de revisar/aplicar o plano de [`docs/SUPABASE_SCHEMA_PLAN.md`](docs/SUPABASE_SCHEMA_PLAN.md). Ainda não há integração Supabase Auth/Storage nem processamento de pagamentos.
+
+### Testes do backend
+
+```powershell
+cd backend_python
+python -m pytest
+```
+
+Os testes de assentos usam um repositório falso isolado de teste para verificar conflito e validação; não são um teste de integração com PostgreSQL. Nenhuma instância de banco foi configurada nesta fase.
+
+## ⚠️ Pré-requisitos do servidor Express legado
 
 - **Node.js** 18 ou superior
 - Uma conta gratuita em **um** provedor de PostgreSQL cloud (escolha um):
@@ -53,7 +104,11 @@ cine-retro-2.0/
 
 ---
 
-## 🚀 Como executar localmente (apontando para o banco remoto)
+## ⚠️ Fluxo legado do Express — não usar para a integração FastAPI
+
+O conteúdo de Express abaixo foi mantido apenas como referência histórica. `npm start` e `npm run migrate` podem criar tabelas e semear contas, planos e mídias de demonstração. Eles não fazem parte do novo fluxo e não devem ser executados para preparar o Supabase nesta etapa.
+
+### Instruções antigas (referência; não aplicáveis ao FastAPI)
 
 ### 1. Criar o banco de dados remoto (gratuito) — exemplo com Supabase
 

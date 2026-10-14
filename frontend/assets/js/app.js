@@ -1,10 +1,8 @@
 // =====================================================================
 // CINE RETRO — app.js
 // Lógica do frontend: autenticação, catálogo, planos, sala/poltrona e
-// painel administrativo. Consome a API REST do backend Express.
+// painel administrativo. Consome a API REST centralizada em api.js.
 // =====================================================================
-
-const API_BASE = window.location.origin + '/api';
 
 // ---------------------------------------------------------------------
 // Estado global simples
@@ -19,6 +17,8 @@ const state = {
   activeMedia: null,
   activeRoom: null,
   selectedSeat: null,
+  reservedSeat: null,
+  playbackPaused: false,
   editingMediaId: null,
   theme: localStorage.getItem('cr_theme') || 'retro'
 };
@@ -58,12 +58,6 @@ function closeModal(id) {
   if (modal) modal.classList.remove('open');
 }
 
-function authHeaders() {
-  return state.token
-    ? { 'Authorization': 'Bearer ' + state.token }
-    : {};
-}
-
 function handleUnauthorized() {
   clearSession();
 
@@ -76,37 +70,11 @@ function handleUnauthorized() {
 }
 
 async function apiRequest(path, options = {}) {
-  const opts = {
-    method: options.method || 'GET',
-    headers: {
-      ...(options.isForm
-        ? {}
-        : { 'Content-Type': 'application/json' }),
-      ...authHeaders(),
-      ...(options.headers || {})
-    },
-    body: options.body
-  };
-
-  const res = await fetch(API_BASE + path, opts);
-
-  let data = {};
-
-  try {
-    data = await res.json();
-  } catch (e) {
-    // Resposta sem corpo JSON
-  }
-
-  if (res.status === 401 && state.token) {
-    handleUnauthorized();
-  }
-
-  if (!res.ok) {
-    throw new Error(data.error || `Erro ${res.status}`);
-  }
-
-  return data;
+  return window.CineRetroApi.request(path, {
+    ...options,
+    token: state.token,
+    onUnauthorized: state.token ? handleUnauthorized : undefined
+  });
 }
 
 // Placeholder local
@@ -122,7 +90,7 @@ function posterUrl(media) {
     return media.poster_path;
   }
 
-  return media.poster_path;
+  return window.CineRetroApi.assetUrl(media.poster_path);
 }
 
 function applyTheme(themeName) {
@@ -132,7 +100,9 @@ function applyTheme(themeName) {
   localStorage.setItem('cr_theme', theme);
 
   qsa('.theme-option').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.themeOption === theme);
+    const isActive = btn.dataset.themeOption === theme;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-pressed', String(isActive));
   });
 }
 
@@ -161,11 +131,30 @@ function updateHeroContent() {
   if (!hero) return;
 
   const featured = state.mediaList.find(m => m.is_featured || m.is_top10) || state.mediaList[0];
-  if (!featured) return;
 
   const title = qs('#heroTitle');
   const tagline = qs('#heroTagline');
   const heroMeta = qs('#heroMeta');
+  const heroButtons = [
+    qs('#btnHeroWatch'),
+    qs('#btnHeroTrailer'),
+    qs('#btnHeroDetails')
+  ];
+
+  if (!featured) {
+    if (title) title.textContent = 'Catálogo indisponível';
+    if (tagline) tagline.textContent = 'Os títulos em destaque serão exibidos quando a API estiver conectada.';
+    if (heroMeta) heroMeta.replaceChildren();
+    hero.style.removeProperty('background-image');
+    heroButtons.forEach(button => {
+      if (button) button.disabled = true;
+    });
+    return;
+  }
+
+  heroButtons.forEach(button => {
+    if (button) button.disabled = false;
+  });
 
   if (title) title.textContent = featured.title || 'Casablanca';
   if (tagline) {
@@ -184,7 +173,7 @@ function updateHeroContent() {
     heroMeta.innerHTML = filmMeta.map(item => `<span>${item}</span>`).join('');
   }
 
-  hero.style.backgroundImage = `linear-gradient(0deg, rgba(13, 8, 6, 0.8) 2%, rgba(18,12,8,0.55) 45%, rgba(18,12,8,0.82) 100%), url('${posterUrl(featured)}')`;
+  hero.style.backgroundImage = `var(--hero-image-overlay), url('${posterUrl(featured)}')`;
   hero.style.backgroundSize = 'cover';
   hero.style.backgroundPosition = 'center';
 }
@@ -242,6 +231,20 @@ function updateAuthUI() {
   }
 }
 
+async function restoreSession() {
+  if (!state.token) return;
+  try {
+    const data = await apiRequest('/auth/me');
+    state.user = data.user;
+    localStorage.setItem('cr_user', JSON.stringify(data.user));
+    updateAuthUI();
+  } catch (error) {
+    if (error.status !== 401) {
+      showToast(`Não foi possível verificar a sessão: ${error.message}`);
+    }
+  }
+}
+
 qs('#btnOpenAuth').addEventListener('click', () => {
   openModal('authModal');
 });
@@ -290,6 +293,7 @@ async function openProfileModal() {
 
   profileNameInput.value = state.user.name || '';
   profileEmailInput.value = state.user.email || '';
+  profileEmailInput.readOnly = true;
   profileNameHeader.textContent = state.user.name || 'Usuário';
   profileEmailHeader.textContent = state.user.email || 'usuario@cineretro.com';
   avatar.textContent = (state.user.name || 'U').trim().charAt(0).toUpperCase();
@@ -324,10 +328,7 @@ qs('#profileForm').addEventListener('submit', async e => {
   const name = qs('#profileNameInput').value.trim();
 
   try {
-    const payload = {
-      name: name || state.user.name,
-      avatar_url: null
-    };
+    const payload = { name: name || state.user.name };
 
     const data = await apiRequest('/users/me', {
       method: 'PUT',
@@ -601,14 +602,19 @@ function renderFeatured() {
 async function loadCatalog() {
   try {
     const data = await apiRequest('/media');
-    state.mediaList = data.media;
+    state.mediaList = data.media || [];
   } catch (err) {
-    console.warn(
-      'Falha ao carregar catálogo da API, usando dados locais de exemplo.',
-      err.message
-    );
-
-    state.mediaList = LOCAL_FALLBACK_MEDIA;
+    state.mediaList = [];
+    const catalogGrid = qs('#catalogGrid');
+    if (catalogGrid) {
+      catalogGrid.innerHTML = `<p class="empty-state">Não foi possível carregar o catálogo: ${escapeHtml(err.message)}</p>`;
+    }
+    const featuredGrid = qs('#featuredGrid');
+    if (featuredGrid) {
+      featuredGrid.innerHTML = `<p class="empty-state">Os destaques não estão disponíveis.</p>`;
+    }
+    updateHeroContent();
+    return;
   }
 
   updateHeroContent();
@@ -739,8 +745,66 @@ qs('#btnHeroTrailer').addEventListener('click', () => {
 // PLANOS
 // =====================================================================
 
-qsa('[data-plan-slug]').forEach(btn => {
-  btn.addEventListener('click', async () => {
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[char]);
+}
+
+async function loadPlans() {
+  const container = qs('#plansGrid');
+  if (!container) return;
+
+  try {
+    const data = await apiRequest('/plans');
+    const plans = data.plans || [];
+    if (!plans.length) {
+      container.innerHTML = '<p class="empty-state">Nenhum plano está disponível no momento.</p>';
+      return;
+    }
+
+    container.innerHTML = plans.map(plan => {
+      const features = (Array.isArray(plan.features) ? plan.features : [])
+        .map(feature => typeof feature === 'string' ? feature : feature.label || feature.name || '')
+        .filter(Boolean)
+        .map(feature => `<li class="yes">${escapeHtml(feature)}</li>`)
+        .join('');
+      const popular = plan.is_popular ? ' popular' : '';
+      const buttonClass = plan.is_popular ? 'btn-primary' : 'btn-outline';
+      const monthlyPrice = Number(plan.price).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      });
+
+      return `
+        <div class="plan-card${popular}">
+          ${plan.is_popular ? '<span class="plan-popular-tag">Mais Popular</span>' : ''}
+          <h3>${escapeHtml(plan.name)}</h3>
+          <div class="plan-price">${monthlyPrice}<span>/mês</span></div>
+          <ul class="plan-features">
+            <li class="yes">Qualidade ${escapeHtml(plan.quality || 'não informada')}</li>
+            <li class="yes">Até ${escapeHtml(plan.max_simultaneous ?? 1)} reprodução(ões) simultânea(s)</li>
+            ${features}
+          </ul>
+          <button class="btn ${buttonClass} btn-block" data-plan-id="${escapeHtml(plan.id)}">
+            Assinar ${escapeHtml(plan.name)}
+          </button>
+        </div>
+      `;
+    }).join('');
+  } catch (error) {
+    container.innerHTML = `<p class="empty-state">Não foi possível carregar os planos: ${escapeHtml(error.message)}</p>`;
+  }
+}
+
+qs('#plansGrid')?.addEventListener('click', async event => {
+  const btn = event.target.closest('[data-plan-id]');
+  if (!btn) return;
+
     if (!state.user) {
       openModal('authModal');
 
@@ -752,29 +816,17 @@ qsa('[data-plan-slug]').forEach(btn => {
     }
 
     try {
-      const plans = await apiRequest('/plans');
-
-      const plan = plans.plans.find(
-        p => p.slug === btn.dataset.planSlug
-      );
-
-      if (!plan) {
-        throw new Error('Plano não encontrado.');
-      }
-
       await apiRequest(
-        `/plans/${plan.id}/subscribe`,
+        `/plans/${btn.dataset.planId}/subscribe`,
         { method: 'POST' }
       );
 
-      showToast(
-        `Assinatura do plano ${plan.name} confirmada com sucesso!`
-      );
+      showToast('Assinatura confirmada pelo servidor.');
+      await loadPlans();
 
     } catch (err) {
       showToast(err.message);
     }
-  });
 });
 
 function openMediaDetails(media) {
@@ -826,9 +878,15 @@ function applyRoomTheme(room) {
 }
 
 async function openTheatre(media, options = {}) {
+  if (!media.video_url && !media.video_path) {
+    showToast('Este título ainda não possui um vídeo cadastrado.');
+    return;
+  }
+
   state.activeMedia = media;
   const savedSeat = getSavedSeatForMedia(media.id);
-  state.selectedSeat = savedSeat;
+  state.selectedSeat = null;
+  state.reservedSeat = null;
 
   qs('#theatreMediaTitle').textContent = media.title;
 
@@ -846,24 +904,19 @@ async function openTheatre(media, options = {}) {
   youtube.removeAttribute('src');
   youtube.style.display = 'none';
 
-  qs('#btnConfirmSeat').disabled = !savedSeat;
-  qs('#selectedSeatTag').textContent = savedSeat
-    ? `Poltrona atual: ${savedSeat.row}${savedSeat.number}`
-    : 'Nenhuma poltrona selecionada';
+  qs('#btnConfirmSeat').disabled = true;
+  qs('#selectedSeatTag').textContent = 'Carregando disponibilidade...';
 
-  let room = state.activeRoom;
+  let room;
   let takenSeats = [];
+  let mySeat = null;
 
   try {
     const roomsData = await apiRequest('/rooms');
-
-    room = roomsData.rooms[0] || room || {
-      id: 1,
-      name: 'Sala Retrô 1',
-      theme: 'retro',
-      total_rows: 6,
-      seats_per_row: 8
-    };
+    room = roomsData.rooms[0];
+    if (!room) {
+      throw new Error('Nenhuma sala está cadastrada no servidor.');
+    }
 
     const seatsData = await apiRequest(
       `/rooms/${room.id}/seats?media_id=${media.id}`
@@ -871,58 +924,46 @@ async function openTheatre(media, options = {}) {
 
     takenSeats = seatsData.takenSeats || [];
     room = seatsData.room || room;
-
-    if (savedSeat) {
-      const savedSeatKey = `${savedSeat.row}${savedSeat.number}`;
-      const seatIsTaken = takenSeats.includes(savedSeatKey);
-
-      if (seatIsTaken) {
-        clearSavedSeatForMedia(media.id);
-        state.selectedSeat = null;
-        qs('#btnConfirmSeat').disabled = true;
-        qs('#selectedSeatTag').textContent = 'Nenhuma poltrona selecionada';
-      } else {
-        state.selectedSeat = savedSeat;
-        qs('#btnConfirmSeat').disabled = false;
-        qs('#selectedSeatTag').textContent = `Poltrona atual: ${savedSeatKey}`;
-      }
-    }
-
+    mySeat = seatsData.mySeat || null;
   } catch (err) {
-    room = room || {
-      id: 1,
-      name: 'Sala Retrô 1',
-      theme: 'retro',
-      total_rows: 6,
-      seats_per_row: 8
-    };
+    showToast(`Não foi possível carregar a sala: ${err.message}`);
+    return;
   }
 
   state.activeRoom = room;
+  state.reservedSeat = mySeat;
+  const savedSeatKey = savedSeat ? `${savedSeat.row}${savedSeat.number}` : null;
+  const savedSeatIsFree = savedSeatKey && !takenSeats.includes(savedSeatKey);
+  state.selectedSeat = mySeat || (savedSeatIsFree ? savedSeat : null);
+
+  if (state.selectedSeat) {
+    setSavedSeatForMedia(media.id, state.selectedSeat);
+  } else if (savedSeat) {
+    clearSavedSeatForMedia(media.id);
+  }
+
   applyRoomTheme(room);
 
   qs('#theatreMediaSub').textContent =
     `${room.name} — ${room.theme === 'moderna' ? 'layout premium com conforto de primeira classe' : 'a perspectiva da tela se ajusta à sua poltrona'}`;
 
-  renderSeatMap(room, takenSeats);
-
-  if (savedSeat) {
-    const savedSeatId = `${savedSeat.row}${savedSeat.number}`;
-    const seatEl = qs(`.seat[data-seat-id="${savedSeatId}"]`);
-    if (seatEl && !seatEl.classList.contains('taken')) {
-      seatEl.classList.add('selected');
-      applySeatPerspective(savedSeat.row, savedSeat.number);
-    }
-  }
-
-  if (options.autoplayTrailer && (media.video_url || media.video_path)) {
-    startPlayback(media);
+  renderSeatMap(room, takenSeats, mySeat);
+  qs('#btnConfirmSeat').disabled = !state.selectedSeat;
+  qs('#selectedSeatTag').textContent = state.selectedSeat
+    ? `${mySeat ? 'Poltrona atual' : 'Poltrona selecionada'}: ${state.selectedSeat.row}${state.selectedSeat.number}`
+    : 'Nenhuma poltrona selecionada';
+  if (state.selectedSeat) {
+    applySeatPerspective(state.selectedSeat.row, state.selectedSeat.number);
   }
 
   openModal('theatreModal');
+
+  if (options.autoplayTrailer && (media.video_url || media.video_path)) {
+    await startPlayback(media);
+  }
 }
 
-function renderSeatMap(room, takenSeats) {
+function renderSeatMap(room, takenSeats, mySeat = null) {
   const rowsLetters =
     'ABCDEFGHIJ'.split('').slice(0, room.total_rows);
 
@@ -939,14 +980,18 @@ function renderSeatMap(room, takenSeats) {
       const seatId = `${rowLetter}${n}`;
 
       const isTaken =
-        takenSeats.includes(seatId);
+        takenSeats.includes(seatId) &&
+        !(mySeat && mySeat.row === rowLetter && mySeat.number === n);
+      const isCurrent =
+        mySeat && mySeat.row === rowLetter && mySeat.number === n;
 
       seatsHtml += `
         <div
-          class="seat ${isTaken ? 'taken' : ''}"
+          class="seat ${isTaken ? 'taken' : ''} ${isCurrent ? 'selected current' : ''}"
           data-row="${rowLetter}"
           data-number="${n}"
           data-seat-id="${seatId}"
+          ${isCurrent ? 'aria-label="Sua poltrona reservada"' : ''}
         ></div>
       `;
     }
@@ -965,12 +1010,12 @@ qs('#seatMap').addEventListener('click', e => {
 
   if (
     !seatEl ||
-    seatEl.classList.contains('taken')
+    (seatEl.classList.contains('taken') && !seatEl.classList.contains('current'))
   ) {
     return;
   }
 
-  qsa('.seat.selected').forEach(s =>
+  qsa('.seat.selected:not(.current)').forEach(s =>
     s.classList.remove('selected')
   );
 
@@ -1015,7 +1060,9 @@ function applySeatPerspective(row, number) {
   const totalSeats = room.seats_per_row;
 
   const horizontalRatio =
-    ((number - 1) / (totalSeats - 1)) * 2 - 1;
+    totalSeats > 1
+      ? ((number - 1) / (totalSeats - 1)) * 2 - 1
+      : 0;
 
   const depthRatio =
     rowIndex / Math.max(totalRows - 1, 1);
@@ -1042,32 +1089,32 @@ qs('#btnConfirmSeat').addEventListener('click', async () => {
   if (!media || !room || !seat) return;
 
   try {
-    await apiRequest(
-      `/rooms/${room.id}/select-seat`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          media_id: media.id,
-          seat_row: seat.row,
-          seat_number: seat.number
-        })
-      }
-    );
-
+    const sameSeat = state.reservedSeat &&
+      state.reservedSeat.row === seat.row &&
+      Number(state.reservedSeat.number) === Number(seat.number);
+    if (!sameSeat) {
+      await apiRequest(
+        `/rooms/${room.id}/select-seat`,
+        {
+          method: state.reservedSeat ? 'PUT' : 'POST',
+          body: JSON.stringify({
+            media_id: media.id,
+            seat_row: seat.row,
+            seat_number: seat.number
+          })
+        }
+      );
+    }
   } catch (err) {
-    console.warn(
-      'Não foi possível registrar a poltrona no servidor:',
-      err.message
-    );
+    showToast(`A reserva não foi confirmada: ${err.message}`);
+    return;
   }
 
   setSavedSeatForMedia(media.id, seat);
+  state.reservedSeat = seat;
 
-  qs(
-    `.seat[data-seat-id="${seat.row}${seat.number}"]`
-  )?.classList.add('taken');
-
-  startPlayback(media);
+  const playbackStarted = await startPlayback(media);
+  if (!playbackStarted) return;
 
   try {
     await apiRequest(
@@ -1075,7 +1122,8 @@ qs('#btnConfirmSeat').addEventListener('click', async () => {
       { method: 'POST' }
     );
   } catch (err) {
-    // Silencioso
+    showToast(`Sessão iniciada; o histórico de visualização não foi registrado: ${err.message}`);
+    return;
   }
 
   showToast(
@@ -1096,10 +1144,19 @@ qs('#btnExitTheatre').addEventListener('click', () => {
 
 qs('#btnChangeSeat').addEventListener('click', () => {
   if (!state.activeMedia) return;
+  if (state.reservedSeat && !state.user) {
+    showToast('Entre na sua conta para trocar uma poltrona já reservada.');
+    return;
+  }
 
   state.selectedSeat = null;
-  clearSavedSeatForMedia(state.activeMedia.id);
-  qsa('.seat.selected').forEach(el => el.classList.remove('selected'));
+  qsa('.seat.selected:not(.current)').forEach(el => el.classList.remove('selected'));
+  const video = qs('#cinemaVideo');
+  const youtube = qs('#cinemaYoutube');
+  if (video) video.pause();
+  if (youtube) youtube.src = '';
+  qs('#cinemaScreen').classList.remove('playing');
+  qs('#theatreModal').classList.remove('session-live');
   qs('#selectedSeatTag').textContent = 'Nenhuma poltrona selecionada';
   qs('#btnConfirmSeat').disabled = true;
   showToast('Selecione uma nova poltrona para continuar.');
@@ -1108,12 +1165,24 @@ qs('#btnChangeSeat').addEventListener('click', () => {
 
 qs('#btnTogglePlayback').addEventListener('click', () => {
   const video = qs('#cinemaVideo');
+  const youtube = qs('#cinemaYoutube');
   const screen = qs('#cinemaScreen');
 
   if (!state.activeMedia) return;
 
   if (!screen.classList.contains('playing')) {
-    startPlayback(state.activeMedia);
+    showToast('Escolha e confirme uma poltrona antes de iniciar a sessão.');
+    return;
+  }
+
+  if (youtube.style.display === 'block') {
+    const command = state.playbackPaused ? 'playVideo' : 'pauseVideo';
+    youtube.contentWindow?.postMessage(
+      JSON.stringify({ event: 'command', func: command, args: [] }),
+      'https://www.youtube.com'
+    );
+    state.playbackPaused = !state.playbackPaused;
+    showToast(state.playbackPaused ? 'Playback pausado.' : 'Playback retomado.');
     return;
   }
 
@@ -1121,31 +1190,37 @@ qs('#btnTogglePlayback').addEventListener('click', () => {
     video.pause();
     showToast('Playback pausado.');
   } else {
-    video.play().catch(() => {});
-    showToast('Playback retomado.');
+    video.play()
+      .then(() => showToast('Playback retomado.'))
+      .catch(() => showToast('O navegador não conseguiu retomar este vídeo.'));
   }
 });
 
 qs('#btnFullscreen').addEventListener('click', async () => {
   const screen = qs('#cinemaScreen');
 
-  if (!document.fullscreenElement) {
-    if (screen.requestFullscreen) {
-      await screen.requestFullscreen();
+  try {
+    if (!document.fullscreenElement) {
+      if (screen.requestFullscreen) {
+        await screen.requestFullscreen();
+      }
+      return;
     }
-    return;
-  }
 
-  if (document.exitFullscreen) {
-    await document.exitFullscreen();
+    if (document.exitFullscreen) {
+      await document.exitFullscreen();
+    }
+  } catch (error) {
+    showToast('Não foi possível alternar para tela cheia neste navegador.');
   }
 });
 
-function startPlayback(media) {
+async function startPlayback(media) {
   const screen = qs('#cinemaScreen');
   const video = qs('#cinemaVideo');
   const youtube = qs('#cinemaYoutube');
 
+  qs('#theatreModal').classList.add('session-live');
   screen.classList.add('playing');
 
   video.style.display = 'none';
@@ -1165,23 +1240,42 @@ function startPlayback(media) {
       youtube.src =
   `https://www.youtube.com/embed/${youtubeId}` +
   `?autoplay=1&controls=1&modestbranding=1` +
-  `&rel=0&iv_load_policy=3`;
+  `&rel=0&iv_load_policy=3&enablejsapi=1` +
+  `&origin=${encodeURIComponent(window.location.origin)}`;
 
       youtube.style.display = 'block';
 
     } else {
       video.src = url;
       video.style.display = 'block';
-
-      video.play().catch(() => {});
+      video.onerror = () => showToast('Não foi possível carregar este vídeo.');
+      try {
+        await video.play();
+        return true;
+      } catch (error) {
+        screen.classList.remove('playing');
+        qs('#theatreModal').classList.remove('session-live');
+        showToast('O navegador não conseguiu iniciar este vídeo.');
+        return false;
+      }
     }
 
   } else if (media.video_path) {
-    video.src = media.video_path;
+    video.src = window.CineRetroApi.assetUrl(media.video_path);
     video.style.display = 'block';
-
-    video.play().catch(() => {});
+    video.onerror = () => showToast('Não foi possível carregar este vídeo.');
+    try {
+      await video.play();
+      return true;
+    } catch (error) {
+      screen.classList.remove('playing');
+      qs('#theatreModal').classList.remove('session-live');
+      showToast('O navegador não conseguiu iniciar este vídeo.');
+      return false;
+    }
   }
+
+  return true;
 }
 
 function getYoutubeVideoId(url) {
@@ -1555,33 +1649,10 @@ qs('#mediaForm').addEventListener(
         ? 'PUT'
         : 'POST';
 
-      const res = await fetch(
-        API_BASE + endpoint,
-        {
-          method,
-          headers: authHeaders(),
-          body: formData
-        }
-      );
-
-      let data = {};
-
-      try {
-        data = await res.json();
-      } catch (error) {
-        // Resposta sem JSON
-      }
-
-      if (res.status === 401) {
-        handleUnauthorized();
-      }
-
-      if (!res.ok) {
-        throw new Error(
-          data.error ||
-          'Erro ao salvar mídia.'
-        );
-      }
+      const data = await apiRequest(endpoint, {
+        method,
+        body: formData
+      });
 
       msg.textContent =
         data.message ||
@@ -1954,7 +2025,7 @@ async function loadUsersTable() {
 
               <td>
                 ${
-                  u.status === 'ativo'
+                            u.active
                     ? '🟢 Ativo'
                     : '🔴 Inativo'
                 }
@@ -1981,7 +2052,7 @@ async function loadUsersTable() {
                   data-toggle-user="${u.id}"
                 >
                   ${
-                    u.status === 'ativo'
+                    u.active
                       ? 'Desativar'
                       : 'Ativar'
                   }
@@ -2118,7 +2189,7 @@ qs('#usersTableBody').addEventListener('click', async e => {
       const isActive =
         toggleButton.textContent.trim().toLowerCase().includes('desativar');
 
-      const newStatus = isActive ? 'inativo' : 'ativo';
+      const newStatus = !isActive;
 
       if (!confirm(`Deseja ${isActive ? 'desativar' : 'ativar'} este usuário?`)) {
         return;
@@ -2129,7 +2200,7 @@ qs('#usersTableBody').addEventListener('click', async e => {
         {
           method: 'PUT',
           body: JSON.stringify({
-            status: newStatus
+            active: newStatus
           })
         }
       );
@@ -2209,82 +2280,6 @@ qsa('.main-nav a').forEach(a => {
   });
 });
 
-// =====================================================================
-// DADOS LOCAIS DE FALLBACK
-// =====================================================================
-
-const LOCAL_FALLBACK_MEDIA = [
-  {
-    id: 1,
-    title: 'Casablanca',
-    genre: 'Drama',
-    release_year: 1942,
-    is_featured: 1,
-    is_top10: 1,
-    poster_path: 'assets/images/poster-casablanca.svg',
-    video_url: ''
-  },
-  {
-    id: 2,
-    title: 'A Regra do Jogo',
-    genre: 'Comedia',
-    release_year: 1939,
-    is_featured: 1,
-    is_top10: 1,
-    poster_path: 'assets/images/poster-generic-1.svg',
-    video_url: ''
-  },
-  {
-    id: 3,
-    title: 'Psicose',
-    genre: 'Suspense',
-    release_year: 1960,
-    is_featured: 1,
-    is_top10: 1,
-    poster_path: 'assets/images/poster-generic-2.svg',
-    video_url: ''
-  },
-  {
-    id: 4,
-    title: 'Cantando na Chuva',
-    genre: 'Musical',
-    release_year: 1952,
-    is_featured: 0,
-    is_top10: 0,
-    poster_path: 'assets/images/poster-generic-3.svg',
-    video_url: ''
-  },
-  {
-    id: 5,
-    title: 'A Bela e a Fera',
-    genre: 'Romance',
-    release_year: 1946,
-    is_featured: 0,
-    is_top10: 0,
-    poster_path: 'assets/images/poster-generic-4.svg',
-    video_url: ''
-  },
-  {
-    id: 6,
-    title: 'Metropolis',
-    genre: 'Ficcao Cientifica',
-    release_year: 1927,
-    is_featured: 0,
-    is_top10: 0,
-    poster_path: 'assets/images/poster-generic-5.svg',
-    video_url: ''
-  },
-  {
-    id: 7,
-    title: 'Nosferatu',
-    genre: 'Terror',
-    release_year: 1922,
-    is_featured: 0,
-    is_top10: 0,
-    poster_path: 'assets/images/poster-generic-6.svg',
-    video_url: ''
-  }
-];
 
 // =====================================================================
 // INICIALIZAÇÃO
@@ -2292,4 +2287,6 @@ const LOCAL_FALLBACK_MEDIA = [
 
 applyTheme(state.theme);
 updateAuthUI();
+restoreSession();
 loadCatalog();
+loadPlans();

@@ -61,19 +61,13 @@
   <div class="container">
     <div class="hero-content">
       <span class="hero-eyebrow">Filme em destaque</span>
-      <h1 id="heroTitle">Casablanca</h1>
-      <p class="tagline" id="heroTagline">"Sempre nos restará Paris." Um clássico atemporal de amor, sacrifício e intriga em meio à Segunda Guerra Mundial.</p>
-      <div class="hero-meta" id="heroMeta">
-        <span>1942</span>
-        <span>Drama</span>
-        <span>12 anos</span>
-        <span>102 min</span>
-        <span>★ Top 10</span>
-      </div>
+      <h1 id="heroTitle">Carregando catálogo...</h1>
+      <p class="tagline" id="heroTagline">Conectando ao catálogo do Cine Retrô.</p>
+      <div class="hero-meta" id="heroMeta"></div>
       <div class="hero-actions">
-        <button class="btn btn-primary" id="btnHeroWatch">▶ Assistir Agora</button>
-        <button class="btn btn-outline" id="btnHeroTrailer" type="button">🎬 Trailer</button>
-        <button class="btn btn-outline" id="btnHeroDetails" type="button">Ver Detalhes</button>
+        <button class="btn btn-primary" id="btnHeroWatch" disabled>▶ Assistir Agora</button>
+        <button class="btn btn-outline" id="btnHeroTrailer" type="button" disabled>🎬 Trailer</button>
+        <button class="btn btn-outline" id="btnHeroDetails" type="button" disabled>Ver Detalhes</button>
       </div>
     </div>
   </div>
@@ -146,35 +140,8 @@
       <p class="desc" style="max-width:560px;">Escolha o plano ideal e tenha acesso ilimitado ao maior acervo de clássicos do cinema.</p>
     </div>
 
-    <div class="plans-grid">
-      <div class="plan-card">
-        <h3>Plano Básico</h3>
-        <div class="plan-price">R$ 40<span>/mês</span></div>
-        <ul class="plan-features">
-          <li class="yes">Catálogo completo ilimitado</li>
-          <li class="yes">Qualidade HD</li>
-          <li class="yes">Até 3 contas simultâneas</li>
-          <li class="yes">Acesso em qualquer dispositivo</li>
-          <li class="no">Sem download offline</li>
-          <li class="no">Sem contas extras</li>
-        </ul>
-        <button class="btn btn-outline btn-block" data-plan-slug="basico">Assinar Básico</button>
-      </div>
-
-      <div class="plan-card popular">
-        <span class="plan-popular-tag">Mais Popular</span>
-        <h3>Plano Premium</h3>
-        <div class="plan-price">R$ 60<span>/mês</span></div>
-        <ul class="plan-features">
-          <li class="yes">Tudo do plano Básico</li>
-          <li class="yes">Qualidade Full HD + 4K</li>
-          <li class="yes">Até 5 contas simultâneas</li>
-          <li class="yes">Download para assistir offline</li>
-          <li class="yes">Acesso antecipado a novidades</li>
-          <li class="yes">Sem anúncios</li>
-        </ul>
-        <button class="btn btn-primary btn-block" data-plan-slug="premium">Assinar PREMIUM</button>
-      </div>
+    <div class="plans-grid" id="plansGrid">
+      <p class="empty-state">Carregando planos disponíveis...</p>
     </div>
   </div>
 </section>
@@ -360,17 +327,19 @@
       </div>
     </div>
 
-    <div class="seat-map" id="seatMap"></div>
+    <div id="seatSelection">
+      <div class="seat-map" id="seatMap"></div>
 
-    <div class="seat-legend">
-      <span><i class="legend-swatch available"></i> Disponível</span>
-      <span><i class="legend-swatch taken"></i> Ocupada</span>
-      <span><i class="legend-swatch selected"></i> Sua poltrona</span>
-    </div>
+      <div class="seat-legend">
+        <span><i class="legend-swatch available"></i> Disponível</span>
+        <span><i class="legend-swatch taken"></i> Ocupada</span>
+        <span><i class="legend-swatch selected"></i> Sua poltrona</span>
+      </div>
 
-    <div class="theatre-footer">
-      <span class="selected-seat-tag" id="selectedSeatTag">Nenhuma poltrona selecionada</span>
-      <button class="btn btn-primary" id="btnConfirmSeat" disabled>🎬 Confirmar e Assistir</button>
+      <div class="theatre-footer">
+        <span class="selected-seat-tag" id="selectedSeatTag">Nenhuma poltrona selecionada</span>
+        <button class="btn btn-primary" id="btnConfirmSeat" disabled>🎬 Confirmar e Assistir</button>
+      </div>
     </div>
   </div>
 </div>
@@ -582,6 +551,7 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="assets/js/api.js"></script>
 <script src="assets/js/app.js"></script>
 </body>
 </html>

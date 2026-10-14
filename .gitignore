@@ -1,11 +1,16 @@
 # Dependências
 node_modules/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv*/
 
 # Variáveis de ambiente (contém senha do banco - NUNCA subir)
 .env
 
 # Uploads de mídia enviados pelos admins
 backend/uploads/
+backend_python/uploads/
 
 # Logs e arquivos de sistema
 npm-debug.log*

@@ -67,3 +67,49 @@ O frontend foi atualizado para seguir os contratos existentes sem inventar campo
 - Validar o comportamento real em ambiente com banco funcional e API ativa.
 - Confirmar, em produção, se a troca de senha, uploads de trailer e reservas persistentes devem entrar em uma fase de backend autorizada.
 - Continuar refinamentos visuais finos do trio de temas e dos layouts de sala somente com backend real disponível para checagem.
+
+---
+
+## Etapa: integração do frontend com a API Python
+
+### Implementado nesta etapa
+- Foi adicionado um serviço FastAPI modular em `backend_python/`, sem remover nem modificar o servidor Express legado.
+- A API oferece configuração via ambiente, CORS com origens explícitas, JWT, hash de senha bcrypt, validação Pydantic, tratamento central de erros e conexão PostgreSQL sem criação automática de tabelas ou seed.
+- Foram implementadas rotas para saúde, autenticação/perfil, gestão administrativa de usuários, catálogo e uploads, visualizações, planos/assinaturas e salas/assentos.
+- A API compartilhada do navegador está em `frontend/assets/js/api.js`; `app.js` não mantém mais um caminho de `fetch` próprio para uploads.
+- Os valores e as ações de planos agora dependem da resposta de `GET /api/plans`. A página não mostra os planos fictícios anteriores se a API não estiver disponível.
+- O fallback local de filmes foi removido. Sem resposta do catálogo, a home apresenta estado de indisponibilidade e não anuncia `Casablanca` como dado recebido do servidor.
+- O perfil deixa o e-mail somente leitura, pois a API preexistente só permite atualizar nome/avatar. O painel envia o status booleano `active`, conforme o contrato.
+- A confirmação de poltrona só inicia a sessão depois da confirmação da API. Falhas não marcam a poltrona como ocupada localmente nem exibem sucesso. A troca autenticada usa `PUT /api/rooms/{room_id}/select-seat` para alterar a reserva existente; a poltrona antiga não é liberada apenas no navegador.
+- A seleção de assento exibe `mySeat` quando há JWT; o player esconde a área de seleção durante a reprodução e preserva a proporção de vídeo com `object-fit: contain`. O botão de troca volta à seleção e respeita o registro confirmado.
+- Documentação atualizada: `docs/API_CONTRACT.md` contém o inventário completo de método/caminho, requisitos, exemplos, erros, entidades e atomicidade; `docs/SUPABASE_SCHEMA_PLAN.md` descreve entidades, RLS, índices e decisões pendentes. Nenhuma tabela foi criada no Supabase.
+- O `README.md` agora instrui a execução Python e identifica o fluxo Node como legado. `.gitignore` exclui envs, cache Python e uploads novos.
+
+### Endpoints implementados
+A lista normativa e exemplos de payloads/respostas estão em [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md). Todos os endpoints listados estão registrados na aplicação FastAPI. Ela inclui:
+- `GET /api/health`
+- `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`
+- `GET /api/users`, `GET /api/users/metrics`, `PUT /api/users/me`, `POST /api/users`, `PUT /api/users/{user_id}/reset-password`, `PUT /api/users/{user_id}/role`, `PUT /api/users/{user_id}/status`, `DELETE /api/users/{user_id}`
+- `GET /api/media`, `GET /api/media/genres`, `GET /api/media/{media_id}`, `POST /api/media/{media_id}/view`, `POST /api/media`, `PUT /api/media/{media_id}`, `DELETE /api/media/{media_id}`
+- `GET /api/plans`, `POST /api/plans/{plan_id}/subscribe`, `GET /api/plans/my-subscription`
+- `GET /api/rooms`, `GET /api/rooms/{room_id}/seats`, `POST /api/rooms/{room_id}/select-seat`, `PUT /api/rooms/{room_id}/select-seat`, `POST /api/rooms`
+
+### Verificações executadas
+- `python -m pytest -q` no diretório `backend_python/`: **12 testes passaram**. Cobertura inclui validação/envelope de erro, rota administrativa sem token (401), papel comum em rota administrativa (403), hashing/JWT, lista de rotas vs contrato, conflito de reserva e atualização atômica de poltrona com double de teste.
+- `node --check frontend/assets/js/api.js` e `node --check frontend/assets/js/app.js`: passaram.
+- Análise de problemas do editor em `app.js` e `api.js`: sem erros.
+- Smoke test HTTP no FastAPI: `/` e `/assets/css/style.css` responderam `200`; `/api/health` respondeu `200` com `{"status":"degraded","database":"not_configured"}`; `/api/media` retornou `503` com erro JSON explícito.
+- Verificação no navegador confirmou que a SPA é servida pelo Python e mostra catálogo/planos indisponíveis sem inventar títulos ou preços quando o PostgreSQL não está configurado. Isso não valida o funcionamento visual completo do player nem operações com dados reais.
+
+### Dependências e pendências reais
+- Nenhuma variável `DATABASE_URL` válida nem PostgreSQL/Supabase foi configurada neste ambiente. Portanto, cadastro/login persistentes, CRUD administrativo, assinaturas, disponibilidade e reservas contra um banco real **não foram executados**.
+- O teste de duplicidade/troca de assento usa um double, não duas conexões concorrentes de PostgreSQL. O schema de referência não tem índices únicos para poltrona nem para assinatura ativa. Aplicar/revisar as constraints propostas em [`docs/SUPABASE_SCHEMA_PLAN.md`](docs/SUPABASE_SCHEMA_PLAN.md) é requisito antes de alegar proteção de produção, especialmente enquanto o Express legado existir como outro escritor possível.
+- A disponibilidade ainda é por `(room_id, media_id)` porque o projeto não tem entidade de sessão/horário de exibição. Reservas para sessões diferentes do mesmo título exigem decisão e possível evolução de schema/rotas.
+- Uploads são armazenados localmente no serviço Python; armazenamento e políticas para produção (por exemplo, Supabase Storage) permanecem pendentes. Assinatura de plano não cobra pagamento.
+- `npm start` no Express antigo executa migração e seeds de demonstração; não o use para inicializar esta etapa Python/Supabase.
+- Um aviso não bloqueante do Starlette aparece nos testes sobre a integração futura do TestClient com o pacote `httpx2`.
+
+### Arquivos criados/modificados nesta etapa
+- Criados: `backend_python/` (configuração, routers, schemas, segurança, serviço de assentos e testes), `frontend/assets/js/api.js`, `docs/API_CONTRACT.md`, `docs/SUPABASE_SCHEMA_PLAN.md`.
+- Modificados: `frontend/assets/js/app.js`, `frontend/assets/css/style.css`, `frontend/index.html`, `README.md`, `.gitignore`.
+- As alterações anteriores dos temas retrô/claro/escuro foram preservadas; não foram redesenhadas nesta etapa.
