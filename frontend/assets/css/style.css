@@ -1402,3 +1402,264 @@ h1, h2, h3, h4 {
     font-weight: 600;
     pointer-events: none;
 }
+/* ==========================================================
+   CINE RETRÔ — REFORMULAÇÃO VISUAL / ETAPA 1
+   Preto predominante, dourado e vermelho pontual
+   ========================================================== */
+
+/* Identidade visual principal */
+:root {
+  --bg-deep: #050505;
+  --bg-panel: #0b0b0b;
+  --bg-panel-light: #141414;
+
+  --gold: #d4af37;
+  --gold-dim: #c5a34b;
+  --gold-soft: rgba(212, 175, 55, 0.28);
+
+  --red: #a91d22;
+  --red-deep: #780f16;
+
+  --cream: #f2eee5;
+  --cream-dim: #b8b1a5;
+
+  --surface-strong: rgba(8, 8, 8, 0.98);
+  --surface-soft: rgba(255, 255, 255, 0.035);
+  --input-bg: #101010;
+  --header-surface: rgba(5, 5, 5, 0.96);
+
+  --page-texture:
+    radial-gradient(
+      ellipse at top,
+      rgba(212, 175, 55, 0.025),
+      transparent 58%
+    ),
+    linear-gradient(180deg, #050505 0%, #090909 100%);
+
+  --hero-base:
+    linear-gradient(
+      0deg,
+      #050505 2%,
+      rgba(5, 5, 5, 0.4) 45%,
+      rgba(5, 5, 5, 0.85) 100%
+    ),
+    linear-gradient(135deg, #17130b 0%, #090909 65%, #050505 100%);
+}
+
+/* Tema escuro: preto real, sem fundo acinzentado */
+body[data-theme='dark'] {
+  --bg-deep: #050505;
+  --bg-panel: #0b0b0b;
+  --bg-panel-light: #141414;
+
+  --gold: #d4af37;
+  --gold-dim: #c5a34b;
+  --gold-soft: rgba(212, 175, 55, 0.28);
+
+  --red: #a91d22;
+  --red-deep: #780f16;
+
+  --cream: #f2eee5;
+  --cream-dim: #b8b1a5;
+
+  --surface-strong: rgba(8, 8, 8, 0.98);
+  --surface-soft: rgba(255, 255, 255, 0.035);
+  --input-bg: #101010;
+  --header-surface: rgba(5, 5, 5, 0.96);
+
+  --page-texture:
+    radial-gradient(
+      ellipse at top,
+      rgba(212, 175, 55, 0.025),
+      transparent 58%
+    ),
+    linear-gradient(180deg, #050505 0%, #090909 100%);
+
+  --hero-base:
+    linear-gradient(
+      0deg,
+      #050505 2%,
+      rgba(5, 5, 5, 0.4) 45%,
+      rgba(5, 5, 5, 0.85) 100%
+    ),
+    linear-gradient(135deg, #17130b 0%, #090909 65%, #050505 100%);
+}
+
+/* Cabeçalho */
+.site-header {
+  background: var(--header-surface);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.site-header .container {
+  gap: 28px;
+}
+
+/* Marca */
+.site-header .logo {
+  flex-shrink: 0;
+  gap: 5px;
+  font-size: 1.35rem;
+  white-space: nowrap;
+}
+
+.site-header .logo small {
+  font-size: 0.55rem;
+  letter-spacing: 0.18em;
+}
+
+/* Navegação principal */
+.main-nav {
+  gap: 26px;
+  flex-shrink: 0;
+}
+
+.main-nav a {
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+}
+
+/* Ações do cabeçalho */
+.header-actions {
+  gap: 10px;
+  min-width: 0;
+}
+
+.theme-switcher {
+  gap: 3px;
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+.theme-option {
+  gap: 5px;
+  padding: 7px 9px;
+  font-size: 0.61rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.theme-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* Botões de autenticação e perfil com proporções consistentes */
+.header-actions > .btn {
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 0.65rem;
+  letter-spacing: 0.045em;
+  white-space: nowrap;
+}
+
+/* Nome do usuário */
+.user-chip {
+  min-width: 0;
+  max-width: 155px;
+  padding: 8px 12px;
+  font-size: 0.68rem;
+  border-color: rgba(212, 175, 55, 0.25);
+  overflow: hidden;
+}
+
+#userChipName {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Ícone vintage */
+.theme-option[data-theme-option='retro'] .theme-icon svg {
+  stroke: currentColor;
+  fill: none;
+}
+
+/* Foco visível para teclado */
+.site-header button:focus-visible,
+.site-header a:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+/* Telas médias: reduzir espaçamentos antes de quebrar o layout */
+@media (max-width: 1100px) {
+  .site-header .container {
+    gap: 16px;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .site-header .logo {
+    font-size: 1.15rem;
+  }
+
+  .site-header .logo small {
+    display: none;
+  }
+
+  .main-nav {
+    gap: 16px;
+  }
+
+  .header-actions {
+    gap: 7px;
+  }
+
+  .theme-option {
+    padding: 7px;
+  }
+
+  .header-actions > .btn {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+}
+
+/* Celulares */
+@media (max-width: 760px) {
+  .site-header .container {
+    gap: 10px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .site-header .logo {
+    font-size: 1rem;
+  }
+
+  .header-actions {
+    gap: 6px;
+  }
+
+  .theme-switcher {
+    gap: 2px;
+    padding: 3px;
+  }
+
+  .theme-option {
+    padding: 7px;
+    font-size: 0;
+  }
+
+  .theme-icon {
+    width: 17px;
+    height: 17px;
+  }
+
+  .header-actions > .btn {
+    min-height: 34px;
+    padding: 7px 9px;
+    font-size: 0.58rem;
+  }
+
+  .user-chip {
+    max-width: 100px;
+    padding: 7px 8px;
+  }
+}
